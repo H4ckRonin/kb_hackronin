@@ -912,7 +912,7 @@ const wallpaperMethodologies = `${baseUrlNormalized}assets/wallpaper-methodologi
       document.documentElement.style.setProperty('--wallpaper-methodologies', `url('${wallpaperMethodologies}')`);
       
       // Clear and set data-page attribute based on current URL to ensure correct wallpaper
-      // Use requestAnimationFrame to ensure DOM is ready
+      // Use requestAnimationFrame to ensure DOM is ready and window.__BASE_URL__ is available
       requestAnimationFrame(() => {
         const currentPageType = getExpectedPageType();
         if (document.body) {
@@ -976,9 +976,17 @@ const wallpaperMethodologies = `${baseUrlNormalized}assets/wallpaper-methodologi
     function getExpectedPageType() {
       const path = window.location.pathname;
       // Handle base URL in path (e.g., /kb_hackronin/certifications)
+      // Ensure window.__BASE_URL__ is available, fallback to checking path directly
       const baseUrl = window.__BASE_URL__ || '/';
-      const basePath = baseUrl === '/' ? '' : baseUrl.replace(/\/$/, '');
-      const pathWithoutBase = basePath ? path.replace(basePath, '') || '/' : path;
+      let pathWithoutBase = path;
+      
+      // Only try to strip base path if baseUrl is not '/'
+      if (baseUrl !== '/') {
+        const basePath = baseUrl.replace(/\/$/, ''); // Remove trailing slash
+        if (basePath && path.startsWith(basePath)) {
+          pathWithoutBase = path.replace(basePath, '') || '/';
+        }
+      }
       
       if (pathWithoutBase === '/' || pathWithoutBase === '') return 'home';
       if (pathWithoutBase.startsWith('/certifications')) return 'certifications';
@@ -995,8 +1003,15 @@ const wallpaperMethodologies = `${baseUrlNormalized}assets/wallpaper-methodologi
         const path = urlObj.pathname;
         // Handle base URL in path (e.g., /kb_hackronin/certifications)
         const baseUrl = window.__BASE_URL__ || '/';
-        const basePath = baseUrl === '/' ? '' : baseUrl.replace(/\/$/, '');
-        const pathWithoutBase = basePath ? path.replace(basePath, '') || '/' : path;
+        let pathWithoutBase = path;
+        
+        // Only try to strip base path if baseUrl is not '/'
+        if (baseUrl !== '/') {
+          const basePath = baseUrl.replace(/\/$/, ''); // Remove trailing slash
+          if (basePath && path.startsWith(basePath)) {
+            pathWithoutBase = path.replace(basePath, '') || '/';
+          }
+        }
         
         if (pathWithoutBase === '/' || pathWithoutBase === '') return 'home';
         if (pathWithoutBase.startsWith('/certifications')) return 'certifications';
@@ -1166,27 +1181,9 @@ const wallpaperMethodologies = `${baseUrlNormalized}assets/wallpaper-methodologi
       document.documentElement.style.setProperty('--wallpaper-methodologies', `url('${wallpaperMethodologies}')`);
       
       // Clear and set data-page attribute based on current URL to ensure correct wallpaper
-      // Use requestAnimationFrame to ensure DOM is ready and inline scripts have run
+      // Use requestAnimationFrame to ensure DOM is ready and window.__BASE_URL__ is available
       requestAnimationFrame(() => {
-        // First, try to get data-page from inline scripts if they've run
-        let pageTypeFromScript = null;
-        const inlineScripts = document.querySelectorAll('script[is\\:inline]');
-        inlineScripts.forEach((script) => {
-          if (script.textContent && script.textContent.includes('data-page')) {
-            try {
-              // Try to extract the value from the script
-              const match = script.textContent.match(/setAttribute\(['"]data-page['"],\s*['"]([^'"]+)['"]\)/);
-              if (match) {
-                pageTypeFromScript = match[1];
-              }
-            } catch (e) {
-              // Ignore errors
-            }
-          }
-        });
-        
-        // Use script value if available, otherwise determine from URL
-        const newPageType = pageTypeFromScript || getExpectedPageType();
+        const newPageType = getExpectedPageType();
         if (document.body) {
           // Remove all data-page attributes first to clear old wallpaper
           document.body.removeAttribute('data-page');
