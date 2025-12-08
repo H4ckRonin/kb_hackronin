@@ -912,15 +912,18 @@ const wallpaperMethodologies = `${baseUrlNormalized}assets/wallpaper-methodologi
       document.documentElement.style.setProperty('--wallpaper-methodologies', `url('${wallpaperMethodologies}')`);
       
       // Clear and set data-page attribute based on current URL to ensure correct wallpaper
-      const currentPageType = getExpectedPageType();
-      if (document.body) {
-        // Remove all data-page attributes first
-        document.body.removeAttribute('data-page');
-        // Set the correct data-page based on current path
-        if (currentPageType !== 'home' && currentPageType !== 'unknown') {
-          document.body.setAttribute('data-page', currentPageType);
+      // Use requestAnimationFrame to ensure DOM is ready
+      requestAnimationFrame(() => {
+        const currentPageType = getExpectedPageType();
+        if (document.body) {
+          // Remove all data-page attributes first
+          document.body.removeAttribute('data-page');
+          // Set the correct data-page based on current path
+          if (currentPageType !== 'home' && currentPageType !== 'unknown') {
+            document.body.setAttribute('data-page', currentPageType);
+          }
         }
-      }
+      });
     });
     
     document.addEventListener('astro:page-load', () => {
@@ -1163,16 +1166,36 @@ const wallpaperMethodologies = `${baseUrlNormalized}assets/wallpaper-methodologi
       document.documentElement.style.setProperty('--wallpaper-methodologies', `url('${wallpaperMethodologies}')`);
       
       // Clear and set data-page attribute based on current URL to ensure correct wallpaper
-      // This is more reliable than re-running inline scripts
-      const newPageType = getExpectedPageType();
-      if (document.body) {
-        // Remove all data-page attributes first to clear old wallpaper
-        document.body.removeAttribute('data-page');
-        // Set the correct data-page based on current path
-        if (newPageType !== 'home' && newPageType !== 'unknown') {
-          document.body.setAttribute('data-page', newPageType);
+      // Use requestAnimationFrame to ensure DOM is ready and inline scripts have run
+      requestAnimationFrame(() => {
+        // First, try to get data-page from inline scripts if they've run
+        let pageTypeFromScript = null;
+        const inlineScripts = document.querySelectorAll('script[is\\:inline]');
+        inlineScripts.forEach((script) => {
+          if (script.textContent && script.textContent.includes('data-page')) {
+            try {
+              // Try to extract the value from the script
+              const match = script.textContent.match(/setAttribute\(['"]data-page['"],\s*['"]([^'"]+)['"]\)/);
+              if (match) {
+                pageTypeFromScript = match[1];
+              }
+            } catch (e) {
+              // Ignore errors
+            }
+          }
+        });
+        
+        // Use script value if available, otherwise determine from URL
+        const newPageType = pageTypeFromScript || getExpectedPageType();
+        if (document.body) {
+          // Remove all data-page attributes first to clear old wallpaper
+          document.body.removeAttribute('data-page');
+          // Set the correct data-page based on current path
+          if (newPageType !== 'home' && newPageType !== 'unknown') {
+            document.body.setAttribute('data-page', newPageType);
+          }
         }
-      }
+      });
       
       // If we switched major sections, ensure fresh content
       if (isMajorSectionChange(currentPageType, newPageType)) {
