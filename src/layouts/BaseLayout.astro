@@ -1099,19 +1099,23 @@ const wallpaperMethodologies = `${baseUrlNormalized}assets/wallpaper-methodologi
       checkTimeout = setTimeout(() => {
         const hasContent = checkContentLoaded();
         
-        // Only reload if content is truly missing AND we're dealing with a cache issue
-        // Don't reload on normal navigation - Astro view transitions handle that
-        if (!hasContent && reloadAttempts < MAX_RELOAD_ATTEMPTS) {
-          // Only reload if this seems like a cache issue (page persisted from cache)
-          // For normal navigation, content should load via view transitions
-          const url = new URL(window.location.href);
-          if (!url.searchParams.has('_t')) {
+          // Only reload if content is truly missing AND we're dealing with a cache issue
+          // Don't reload on normal navigation - Astro view transitions handle that
+          if (!hasContent && reloadAttempts < MAX_RELOAD_ATTEMPTS) {
+            // Only reload if this seems like a cache issue (page persisted from cache)
+            // For normal navigation, content should load via view transitions
+            // Use hash-based cache busting that gets removed immediately
             reloadAttempts++;
-            url.searchParams.set('_t', Date.now().toString());
-            window.location.href = url.toString();
+            const hash = `#_reload_${Date.now()}`;
+            window.location.replace(window.location.pathname + window.location.search + hash);
+            // Remove hash immediately
+            setTimeout(() => {
+              if (window.location.hash.startsWith('#_reload_')) {
+                window.history.replaceState({}, '', window.location.pathname + window.location.search);
+              }
+            }, 0);
             return; // Don't mark as checked since we're reloading
           }
-        }
         hasCheckedContent = true;
       }, 800); // Increased delay to allow view transitions to complete
     }
@@ -1133,30 +1137,22 @@ const wallpaperMethodologies = `${baseUrlNormalized}assets/wallpaper-methodologi
       }
     });
     
-    // Clean up cache-busting parameter from URL after everything has loaded
-    // Wait for CSS and all resources to be ready before cleaning URL
-    function cleanupCacheBustingParam() {
-      const url = new URL(window.location.href);
-      if (url.searchParams.has('_nc')) {
-        // Wait a bit to ensure CSS and other resources have loaded
-        setTimeout(() => {
-          url.searchParams.delete('_nc');
-          window.history.replaceState({}, '', url.toString());
-        }, 500);
+    // Clean up cache-busting hash from URL if present
+    function cleanupCacheBustingHash() {
+      if (window.location.hash.startsWith('#_nc_')) {
+        window.history.replaceState({}, '', window.location.pathname + window.location.search);
       }
     }
     
-    // Clean up on page load (after a delay to ensure CSS loads)
+    // Clean up hash on page load
     if (document.readyState === 'complete') {
-      cleanupCacheBustingParam();
+      cleanupCacheBustingHash();
     } else {
-      window.addEventListener('load', cleanupCacheBustingParam);
+      window.addEventListener('load', cleanupCacheBustingHash);
     }
     
-    // Also clean up on astro:page-load (after a delay)
-    document.addEventListener('astro:page-load', () => {
-      setTimeout(cleanupCacheBustingParam, 500);
-    });
+    // Also clean up on astro:page-load
+    document.addEventListener('astro:page-load', cleanupCacheBustingHash);
     
     // Initial check on page load
     if (document.readyState === 'loading') {
@@ -1266,9 +1262,16 @@ const wallpaperMethodologies = `${baseUrlNormalized}assets/wallpaper-methodologi
           event.preventDefault();
           event.stopPropagation();
           
-          // Add cache-busting parameter and do a full navigation
-          targetUrl.searchParams.set('_nc', Date.now().toString());
-          window.location.href = targetUrl.toString();
+          // Use location.replace with hash for cache-busting, then remove hash immediately
+          // This forces a reload without adding query parameters to the URL
+          const hash = `#_nc_${Date.now()}`;
+          window.location.replace(targetUrl.toString() + hash);
+          // Remove hash immediately after navigation starts
+          setTimeout(() => {
+            if (window.location.hash.startsWith('#_nc_')) {
+              window.history.replaceState({}, '', window.location.pathname + window.location.search);
+            }
+          }, 0);
           return;
         }
       } catch {
