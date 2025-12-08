@@ -1123,6 +1123,13 @@ const wallpaperMethodologies = `${baseUrlNormalized}assets/wallpaper-methodologi
         reloadAttempts = 0;
       }
       
+      // Clean up cache-busting parameter from URL if present
+      const url = new URL(window.location.href);
+      if (url.searchParams.has('_nc')) {
+        url.searchParams.delete('_nc');
+        window.history.replaceState({}, '', url.toString());
+      }
+      
       if (event.persisted) {
         // Page was loaded from cache, check if content is there
         ensureContentLoaded();
@@ -1162,6 +1169,14 @@ const wallpaperMethodologies = `${baseUrlNormalized}assets/wallpaper-methodologi
     document.addEventListener('astro:page-load', () => {
       hasCheckedContent = false;
       reloadAttempts = 0; // Reset on new page load
+      
+      // Clean up cache-busting parameter from URL if present
+      const url = new URL(window.location.href);
+      if (url.searchParams.has('_nc')) {
+        url.searchParams.delete('_nc');
+        // Use replaceState to clean URL without adding to history
+        window.history.replaceState({}, '', url.toString());
+      }
       
       // Update CSS variables with base URL on page load (in case they weren't set correctly)
       const baseUrl = window.__BASE_URL__ || '/';
