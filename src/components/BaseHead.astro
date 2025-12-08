@@ -2,6 +2,7 @@
 import { ClientRouter } from 'astro:transitions'
 import '../styles/fonts.css'
 import '../styles/global.css'
+import { assetUrl } from '../utils/paths';
 
 export interface Props {
   title: string
@@ -11,6 +12,7 @@ export interface Props {
 
 const { title, description, permalink } = Astro.props
 const socialUrl = Astro.site.href + 'assets/social.png'
+const baseUrl = import.meta.env.BASE_URL || '/'
 ---
 
 <!-- Global Metadata -->
@@ -20,9 +22,9 @@ const socialUrl = Astro.site.href + 'assets/social.png'
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
 <meta http-equiv="Pragma" content="no-cache" />
 <meta http-equiv="Expires" content="0" />
-<link rel="icon" type="image/png" href="/assets/book-icon.png" />
-<link rel="icon" type="image/x-icon" href="/favicon.ico" />
-<link rel="apple-touch-icon" href="/assets/book-icon.png" />
+<link rel="icon" type="image/png" href={assetUrl('/assets/book-icon.png')} />
+<link rel="icon" type="image/x-icon" href={assetUrl('/favicon.ico')} />
+<link rel="apple-touch-icon" href={assetUrl('/assets/book-icon.png')} />
 
 <!-- Performance: Modern Resource Hints & View Transitions -->
 <link rel="preconnect" href="https://fonts.googleapis.com" />

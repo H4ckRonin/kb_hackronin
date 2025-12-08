@@ -3,6 +3,7 @@ import BaseLayout from '../../layouts/BaseLayout.astro';
 import Icon from '../../components/Icons.astro';
 import { getCollection } from 'astro:content';
 import { enrichCertData, generateTitleFromFilename, formatCertificationName } from '../../utils/content';
+import { withBase } from '../../utils/paths';
 
 const title = 'Certifications - Knowledge Base';
 const description = 'Comprehensive notes and cheat sheets for cybersecurity certifications';
@@ -2230,7 +2231,7 @@ if (vendorFilter && categoryFilter) {
                 </button>
               </div>
             )}
-            <button class="clear-filters" onclick="window.location.href='/certifications'">Clear All</button>
+            <button class="clear-filters" onclick={`window.location.href='${withBase('/certifications')}'`}>Clear All</button>
           </div>
         )}
       </div>
@@ -2344,7 +2345,7 @@ if (vendorFilter && categoryFilter) {
                 certName,
                 files.map(f => ({
                   title: f.data.title || generateTitleFromFilename(f.id.split('/').pop()?.replace('.md', '') || ''),
-                  href: `/certifications/${f.id.replace(/\.md$/, '')}`
+                  href: withBase(`/certifications/${f.id.replace(/\.md$/, '')}`)
                 }))
               ])
             ])
@@ -2391,7 +2392,7 @@ if (vendorFilter && categoryFilter) {
                               ) : (
                                 files.map((file) => {
                                 const fileTitle = file.data.title || generateTitleFromFilename(file.id.split('/').pop()?.replace('.md', '') || '');
-                                const fileHref = `/certifications/${file.id.replace(/\.md$/, '')}`;
+                                const fileHref = withBase(`/certifications/${file.id.replace(/\.md$/, '')}`);
                                 return (
                                   <a href={fileHref} class="file-link">
                                     <span>{fileTitle}</span>

@@ -1,18 +1,19 @@
 ---
 import Icon from './Icons.astro';
 import ThemeToggleButton from './ThemeToggleButton.svelte';
+import { withBase } from '../utils/paths';
 
 const { current = '' } = Astro.props;
 
 const menuItems = [
-  { href: '/', label: 'Home', icon: 'home', key: 'home' },
-  { href: '/certifications', label: 'Certifications', icon: 'certifications', key: 'certifications' },
-  { href: '/guides', label: 'Guides', icon: 'guides', key: 'guides', comingSoon: true },
-  { href: '/methodologies', label: 'Methodologies', icon: 'methodology', key: 'methodologies', comingSoon: true },
-  { href: '/techniques', label: 'Techniques', icon: 'techniques', key: 'techniques', comingSoon: true },
+  { href: withBase('/'), label: 'Home', icon: 'home', key: 'home' },
+  { href: withBase('/certifications'), label: 'Certifications', icon: 'certifications', key: 'certifications' },
+  { href: withBase('/guides'), label: 'Guides', icon: 'guides', key: 'guides', comingSoon: true },
+  { href: withBase('/methodologies'), label: 'Methodologies', icon: 'methodology', key: 'methodologies', comingSoon: true },
+  { href: withBase('/techniques'), label: 'Techniques', icon: 'techniques', key: 'techniques', comingSoon: true },
   { href: 'https://kb.offsec.nl', label: 'Tools', icon: 'tools', key: 'tools', external: true },
   { href: 'https://discord.gg/zvNP7HEVH5', label: 'Community', icon: 'discord', key: 'community', external: true },
-  { href: '/support', label: 'Support Me', icon: 'support', key: 'support' },
+  { href: withBase('/support'), label: 'Support Me', icon: 'support', key: 'support' },
 ];
 ---
 
@@ -21,10 +22,10 @@ const menuItems = [
   <div class="menu-container">
     <div class="menu-header">
       <div class="profile-picture-container">
-        <a href="/" title="Home" class="profile-picture-link">
+        <a href={withBase('/')} title="Home" class="profile-picture-link">
           <div class="profile-picture-wrapper">
             <img 
-              src="/assets/book-icon.png" 
+              src={import.meta.env.BASE_URL + 'assets/book-icon.png'} 
               alt="Knowledge Base" 
               class="profile-picture-image"
             />
