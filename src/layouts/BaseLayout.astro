@@ -897,6 +897,30 @@ const wallpaperMethodologies = `${baseUrl}assets/wallpaper-methodologies.webp`;
       setTimeout(() => {
         initCodeBlocks(true);
       }, 600);
+      
+      // Ensure stylesheets are loaded after swap
+      setTimeout(() => {
+        const stylesheets = document.querySelectorAll('link[rel="stylesheet"]');
+        stylesheets.forEach((link: HTMLLinkElement) => {
+          if (link.href && !link.href.includes('fonts.googleapis.com') && !link.sheet) {
+            // Stylesheet didn't load, reload it
+            const href = link.href;
+            const parent = link.parentNode;
+            const nextSibling = link.nextSibling;
+            link.remove();
+            const newLink = document.createElement('link');
+            newLink.rel = 'stylesheet';
+            newLink.href = href;
+            if (parent) {
+              if (nextSibling) {
+                parent.insertBefore(newLink, nextSibling);
+              } else {
+                parent.appendChild(newLink);
+              }
+            }
+          }
+        });
+      }, 300);
     });
     
     document.addEventListener('astro:page-load', () => {
@@ -1116,28 +1140,40 @@ const wallpaperMethodologies = `${baseUrl}assets/wallpaper-methodologies.webp`;
       hasCheckedContent = false;
       reloadAttempts = 0; // Reset on new page load
       
-      // Ensure CSS is loaded correctly - don't force reload as it can break styles
-      // Instead, verify stylesheets are present and have correct hrefs
-      const stylesheets = document.querySelectorAll('link[rel="stylesheet"]');
-      stylesheets.forEach((link: HTMLLinkElement) => {
-        if (link.href && !link.href.includes('fonts.googleapis.com')) {
-          // Check if stylesheet is actually loaded
-          if (!link.sheet && link.href) {
-            // Stylesheet failed to load, try reloading
-            const href = link.href;
-            const newLink = document.createElement('link');
-            newLink.rel = 'stylesheet';
-            newLink.href = href;
-            newLink.onerror = () => {
-              // If still fails, try with cache bust
-              newLink.href = href + (href.includes('?') ? '&' : '?') + '_t=' + Date.now();
-            };
-            link.parentNode?.insertBefore(newLink, link.nextSibling);
-            // Remove old link after a delay
-            setTimeout(() => link.remove(), 100);
+      // Ensure CSS is loaded correctly - check after a delay to allow stylesheets to load
+      // Don't force reload immediately as stylesheets may still be loading during view transitions
+      setTimeout(() => {
+        const stylesheets = document.querySelectorAll('link[rel="stylesheet"]');
+        stylesheets.forEach((link: HTMLLinkElement) => {
+          if (link.href && !link.href.includes('fonts.googleapis.com')) {
+            // Check if stylesheet actually loaded after delay
+            // link.sheet will be null if stylesheet failed to load
+            if (!link.sheet && link.href) {
+              // Stylesheet failed to load, try reloading
+              const href = link.href;
+              const parent = link.parentNode;
+              const nextSibling = link.nextSibling;
+              
+              // Remove old link
+              link.remove();
+              
+              // Create new link element
+              const newLink = document.createElement('link');
+              newLink.rel = 'stylesheet';
+              newLink.href = href;
+              
+              // Insert in same position
+              if (parent) {
+                if (nextSibling) {
+                  parent.insertBefore(newLink, nextSibling);
+                } else {
+                  parent.appendChild(newLink);
+                }
+              }
+            }
           }
-        }
-      });
+        });
+      }, 300); // Wait 300ms to allow stylesheets to load during view transitions
       
       // Re-run inline scripts that set data-page attribute
       // This ensures data-page is set correctly after view transitions
