@@ -33,7 +33,7 @@ const baseUrl = import.meta.env.BASE_URL || '/';
 </body>
 </html>
 
-<style>
+<style define:vars={{ baseUrl }}>
   :root {
     --bg-color: #0b0b0b;
     --fg-color: #e6e0d6;
@@ -41,6 +41,11 @@ const baseUrl = import.meta.env.BASE_URL || '/';
     --card-bg: rgba(17,17,17,0.85);
     --border-color: #222;
     --scanline: rgba(255,255,255,0.02);
+    --base-url: '{baseUrl}';
+    --wallpaper-dark: url('{baseUrl}assets/wallpaper-dark.jpg');
+    --wallpaper-light: url('{baseUrl}assets/wallpaper-light.png');
+    --wallpaper-certifications: url('{baseUrl}assets/wallpaper-certifications.jpg');
+    --wallpaper-methodologies: url('{baseUrl}assets/wallpaper-methodologies.webp');
   }
   [data-theme="light"] {
     --bg-color: #f5f0e8;
@@ -78,7 +83,7 @@ const baseUrl = import.meta.env.BASE_URL || '/';
     position: fixed;
     top: 0; left: 0;
     width: 100%; height: 100%;
-    background-image: url('/assets/wallpaper-dark.jpg');
+    background-image: var(--wallpaper-dark);
     background-size: cover;
     background-position: center;
     background-repeat: no-repeat;
@@ -93,7 +98,7 @@ const baseUrl = import.meta.env.BASE_URL || '/';
     position: fixed;
     top: 0; left: 0;
     width: 100%; height: 100%;
-    background-image: url('/assets/wallpaper-light.png');
+    background-image: var(--wallpaper-light);
     background-size: cover;
     background-position: center;
     background-repeat: no-repeat;
@@ -159,19 +164,19 @@ const baseUrl = import.meta.env.BASE_URL || '/';
 
   /* Page-specific backgrounds */
   body[data-page="certifications"].theme-dark::after {
-    background-image: url('/assets/wallpaper-certifications.jpg') !important;
+    background-image: var(--wallpaper-certifications) !important;
   }
   
   body[data-page="certifications"]:not(.theme-dark)::after {
-    background-image: url('/assets/wallpaper-light.png') !important;
+    background-image: var(--wallpaper-light) !important;
   }
 
   body[data-page="methodologies"].theme-dark::after {
-    background-image: url('/assets/wallpaper-methodologies.webp') !important;
+    background-image: var(--wallpaper-methodologies) !important;
   }
   
   body[data-page="methodologies"]:not(.theme-dark)::after {
-    background-image: url('/assets/wallpaper-light.png') !important;
+    background-image: var(--wallpaper-light) !important;
   }
 
   main {
@@ -1080,6 +1085,16 @@ const baseUrl = import.meta.env.BASE_URL || '/';
     document.addEventListener('astro:page-load', () => {
       hasCheckedContent = false;
       reloadAttempts = 0; // Reset on new page load
+      
+      // Force reload of stylesheets to ensure CSS is fresh
+      const stylesheets = document.querySelectorAll('link[rel="stylesheet"]');
+      stylesheets.forEach((link: HTMLLinkElement) => {
+        if (link.href && !link.href.includes('fonts.googleapis.com')) {
+          const href = link.href;
+          link.href = '';
+          link.href = href;
+        }
+      });
       
       const newPageType = getExpectedPageType();
       
