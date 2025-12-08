@@ -1,0 +1,109 @@
+---
+export interface Props {
+  relatedItems: Array<{ title: string; href: string; description?: string }>;
+  collectionType: 'certifications' | 'methodologies';
+}
+
+const { relatedItems, collectionType } = Astro.props;
+---
+
+{relatedItems.length > 0 && (
+  <section class="further-reading">
+    <h2 class="section-title">Further Reading</h2>
+    <div class="reading-grid">
+      {relatedItems.map((item) => (
+        <a href={item.href} class="reading-card">
+          <h3 class="reading-title">{item.title}</h3>
+          {item.description && (
+            <p class="reading-description">{item.description}</p>
+          )}
+          <span class="reading-link">
+            Read more →
+          </span>
+        </a>
+      ))}
+    </div>
+  </section>
+)}
+
+<style>
+  .further-reading {
+    margin-top: 4rem;
+    padding-top: 2rem;
+    border-top: 1px solid var(--border-color, #222);
+  }
+
+  .section-title {
+    font-size: 1.5rem;
+    font-weight: 600;
+    margin: 0 0 1.5rem;
+    color: var(--accent-color, #d4b78c);
+    font-family: 'Poppins', sans-serif;
+  }
+
+  .reading-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 1.5rem;
+  }
+
+  .reading-card {
+    display: block;
+    padding: 1.5rem;
+    background: var(--card-bg, rgba(17, 17, 17, 0.85));
+    border: 1px solid var(--border-color, #222);
+    border-radius: 8px;
+    text-decoration: none;
+    color: var(--fg-color, #e6e0d6);
+    transition: all 0.3s ease;
+    position: relative;
+  }
+
+  .reading-card:hover {
+    border-color: var(--accent-color, #d4b78c);
+    background: rgba(212, 183, 140, 0.05);
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(212, 183, 140, 0.15);
+  }
+
+  .reading-title {
+    font-size: 1.1rem;
+    font-weight: 600;
+    margin: 0 0 0.75rem;
+    color: var(--fg-color, #e6e0d6);
+    font-family: 'Poppins', sans-serif;
+    transition: color 0.3s ease;
+  }
+
+  .reading-card:hover .reading-title {
+    color: var(--accent-color, #d4b78c);
+  }
+
+  .reading-description {
+    font-size: 0.9rem;
+    color: var(--text-muted, rgba(230, 224, 214, 0.7));
+    line-height: 1.6;
+    margin: 0 0 1rem;
+  }
+
+  .reading-link {
+    display: inline-flex;
+    align-items: center;
+    font-size: 0.85rem;
+    color: var(--accent-color, #d4b78c);
+    font-weight: 600;
+    font-family: 'Poppins', sans-serif;
+    transition: transform 0.3s ease;
+  }
+
+  .reading-card:hover .reading-link {
+    transform: translateX(4px);
+  }
+
+  @media (max-width: 768px) {
+    .reading-grid {
+      grid-template-columns: 1fr;
+    }
+  }
+</style>
+

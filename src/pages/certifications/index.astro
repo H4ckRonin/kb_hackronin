@@ -1,0 +1,4177 @@
+---
+import BaseLayout from '../../layouts/BaseLayout.astro';
+import Icon from '../../components/Icons.astro';
+import { getCollection } from 'astro:content';
+import { enrichCertData, generateTitleFromFilename, formatCertificationName } from '../../utils/content';
+
+const title = 'Certifications - Knowledge Base';
+const description = 'Comprehensive notes and cheat sheets for cybersecurity certifications';
+const permalink = `${Astro.site.href}certifications`;
+
+// Map category names to icon names with fallback
+function getCategoryIcon(category: string): string {
+  const categoryLower = category.toLowerCase().replace(/\s+/g, '-');
+  const iconMap: Record<string, string> = {
+    'active-directory': 'active-directory',
+    'cloud': 'cloud',
+    'defensive-security': 'defensive-security',
+    'exploit-development-evasion': 'exploit-development-evasion',
+    'infrastructure': 'infrastructure',
+    'mobile-penetration-testing': 'mobile',
+    'mobile': 'mobile',
+    'stackable': 'stackable',
+    'web-application': 'web-application',
+    'security-assessment-testing': 'security-assessment-testing',
+    'security-management-grc': 'security-management-grc',
+    'software-security': 'software-security',
+    'communication-network-security': 'communication-network-security',
+    'iam': 'iam',
+  };
+  
+  // Try exact match first
+  if (iconMap[categoryLower]) {
+    return iconMap[categoryLower];
+  }
+  
+  // Try partial match (e.g., "mobile-penetration-testing" -> "mobile")
+  for (const [key, icon] of Object.entries(iconMap)) {
+    if (categoryLower.includes(key) || key.includes(categoryLower)) {
+      return icon;
+    }
+  }
+  
+  // Fallback to general icon
+  return 'general';
+}
+
+let allCerts = await getCollection('certifications');
+
+// Filter out files that don't have at least 2 parts (category/filename minimum)
+allCerts = allCerts.filter(cert => {
+  const parts = cert.id.split('/').filter(p => p);
+  return parts.length >= 2; // At least category/filename
+});
+
+// Enrich cert data with metadata from paths
+allCerts = allCerts.map(enrichCertData);
+
+// Group certifications by category -> vendor -> certification
+// Handle both 4-part paths (with certification) and 3-part paths (without certification)
+const groupedCerts: Record<string, Record<string, Record<string, typeof allCerts>>> = {};
+
+allCerts.forEach(cert => {
+  const category = cert.data.category?.trim() || '';
+  const vendor = cert.data.vendor?.trim() || '';
+  const certName = cert.data.certification?.trim() || '';
+  
+  // Require at least category and vendor
+  if (!category || !vendor) return;
+  
+  // For 3-part paths (no certification), use a default name or the filename
+  const finalCertName = certName || 'general';
+  
+  if (!groupedCerts[category]) {
+    groupedCerts[category] = {};
+  }
+  if (!groupedCerts[category][vendor]) {
+    groupedCerts[category][vendor] = {};
+  }
+  if (!groupedCerts[category][vendor][finalCertName]) {
+    groupedCerts[category][vendor][finalCertName] = [];
+  }
+  
+  groupedCerts[category][vendor][finalCertName].push(cert);
+});
+
+// Get all unique categories, vendors, and certifications for filters
+const allCategories = [...new Set(allCerts.map(c => c.data.category).filter(Boolean))].sort();
+const allVendors = [...new Set(allCerts.map(c => c.data.vendor).filter(Boolean))].sort();
+const allCertifications = [...new Set(allCerts.map(c => c.data.certification).filter(Boolean))].sort();
+
+// Get URL search params for filtering
+const url = Astro.url;
+const categoryFilter = url.searchParams.get('category') || '';
+const vendorFilter = url.searchParams.get('vendor') || '';
+const certFilter = url.searchParams.get('certification') || '';
+const searchQuery = url.searchParams.get('search') || '';
+
+// Filter grouped certs based on URL params
+let filteredGroupedCerts = { ...groupedCerts };
+if (categoryFilter) {
+  filteredGroupedCerts = { [categoryFilter]: filteredGroupedCerts[categoryFilter] || {} };
+}
+if (vendorFilter && categoryFilter) {
+  filteredGroupedCerts = {
+    [categoryFilter]: { [vendorFilter]: filteredGroupedCerts[categoryFilter]?.[vendorFilter] || {} }
+  };
+}
+---
+
+<BaseLayout title={title} description={description} permalink={permalink} current="certifications">
+  <style is:global>
+    .certifications-container {
+      max-width: 1400px;
+      margin: 0 auto;
+      padding: 2rem;
+      position: relative;
+      z-index: 20;
+    }
+
+    .page-header {
+      margin-bottom: 2rem;
+      text-align: center;
+    }
+
+    .page-title {
+      font-size: 2.5rem;
+      font-weight: 700;
+      margin: 0 0 0.5rem;
+      font-family: 'Poppins', sans-serif;
+    }
+
+    .page-description {
+      font-size: 1rem;
+      color: var(--text-muted, #999);
+      max-width: 600px;
+      margin: 0 auto;
+    }
+
+    .search-section {
+      margin-bottom: 2rem;
+    }
+
+    .search-bar {
+      position: relative;
+      margin-bottom: 1rem;
+    }
+
+    .search-icon {
+      position: absolute;
+      left: 1rem;
+      top: 50%;
+      transform: translateY(-50%);
+      color: var(--text-muted, #999);
+      pointer-events: none;
+    }
+
+    .search-input {
+      width: 100%;
+      padding: 0.75rem 1rem 0.75rem 3rem;
+      background: var(--card-bg, rgba(255, 255, 255, 0.02));
+      border: 1px solid var(--border-color, #222);
+      border-radius: 8px;
+      color: var(--fg-color, #e6e0d6);
+      font-size: 1rem;
+      font-family: 'Poppins', sans-serif;
+      transition: all 0.2s;
+    }
+
+    .search-input:focus {
+      outline: none;
+      border-color: var(--accent-color, #d4b78c);
+      box-shadow: 0 0 0 3px rgba(212, 183, 140, 0.1);
+    }
+
+    .filter-toggle-container {
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+      flex-wrap: wrap;
+    }
+
+    /* View Toggle Switch - Simplified */
+    .view-toggle-btn {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      padding: 0.5rem 1rem;
+      background: var(--card-bg, rgba(255, 255, 255, 0.02));
+      border: 1px solid var(--border-color, #222);
+      border-radius: 6px;
+      color: var(--fg-color, #e6e0d6);
+      cursor: pointer;
+      font-family: 'Poppins', sans-serif;
+      font-size: 0.9rem;
+      font-weight: 500;
+      transition: all 0.2s;
+      white-space: nowrap;
+    }
+
+    .view-toggle-btn:hover {
+      border-color: var(--accent-color, #d4b78c);
+      background: rgba(212, 183, 140, 0.1);
+    }
+
+    .view-toggle-btn svg {
+      width: 18px;
+      height: 18px;
+      transition: transform 0.2s;
+    }
+
+    .view-toggle-btn.active {
+      background: rgba(212, 183, 140, 0.2);
+      border-color: var(--accent-color, #d4b78c);
+    }
+
+    .view-toggle-btn.active svg {
+      transform: rotate(180deg);
+    }
+
+    @media (max-width: 768px) {
+      .view-toggle-btn {
+        padding: 0.5rem 0.75rem;
+        font-size: 0.85rem;
+      }
+    }
+
+    @media (max-width: 480px) {
+      .view-toggle-btn {
+        padding: 0.5rem;
+        font-size: 0.8rem;
+        min-width: 44px;
+        justify-content: center;
+      }
+      .view-toggle-btn span#view-toggle-text {
+        display: none;
+      }
+    }
+
+    .filter-toggle-btn {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      padding: 0.5rem 1rem;
+      background: var(--card-bg, rgba(255, 255, 255, 0.02));
+      border: 1px solid var(--border-color, #222);
+      border-radius: 6px;
+      color: var(--fg-color, #e6e0d6);
+      cursor: pointer;
+      font-family: 'Poppins', sans-serif;
+      font-size: 0.9rem;
+      transition: all 0.2s;
+    }
+
+    .filter-toggle-btn:hover {
+      border-color: var(--accent-color, #d4b78c);
+      background: rgba(212, 183, 140, 0.1);
+    }
+
+    .filter-toggle-btn.active {
+      background: rgba(212, 183, 140, 0.2);
+      border-color: var(--accent-color, #d4b78c);
+    }
+
+    .active-filters {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      flex-wrap: wrap;
+    }
+
+    .active-filter-badge {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      padding: 0.4rem 0.75rem;
+      background: rgba(212, 183, 140, 0.2);
+      border: 1px solid var(--accent-color, #d4b78c);
+      border-radius: 6px;
+      font-size: 0.85rem;
+      font-family: 'Poppins', sans-serif;
+    }
+
+    .remove-filter {
+      background: none;
+      border: none;
+      color: var(--accent-color, #d4b78c);
+      cursor: pointer;
+      font-size: 1.2rem;
+      line-height: 1;
+      padding: 0;
+      width: 18px;
+      height: 18px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: all 0.2s;
+    }
+
+    .remove-filter:hover {
+      transform: scale(1.2);
+    }
+
+    .clear-filters {
+      padding: 0.4rem 0.75rem;
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid var(--border-color, #222);
+      border-radius: 6px;
+      color: var(--fg-color, #e6e0d6);
+      cursor: pointer;
+      font-size: 0.85rem;
+      font-family: 'Poppins', sans-serif;
+      transition: all 0.2s;
+    }
+
+    .clear-filters:hover {
+      background: rgba(255, 255, 255, 0.1);
+      border-color: var(--accent-color, #d4b78c);
+    }
+
+    .filters-row {
+      display: none;
+      flex-direction: column;
+      gap: 1.5rem;
+      margin-top: 1.5rem;
+      padding: 1.5rem;
+      background: var(--card-bg, rgba(255, 255, 255, 0.02));
+      border: 1px solid var(--border-color, #222);
+      border-radius: 8px;
+    }
+
+    .filters-row.show {
+      display: flex;
+    }
+
+    .filter-section {
+      display: flex;
+      flex-direction: column;
+      gap: 0.75rem;
+    }
+
+    .filter-section-title {
+      font-size: 0.9rem;
+      font-weight: 600;
+      color: var(--text-muted, #999);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      font-family: 'Poppins', sans-serif;
+    }
+
+    .filter-chips {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.5rem;
+    }
+
+    .filter-chip {
+      padding: 0.5rem 1rem;
+      background: var(--card-bg, rgba(255, 255, 255, 0.02));
+      border: 1px solid var(--border-color, #222);
+      border-radius: 6px;
+      color: var(--fg-color, #e6e0d6);
+      text-decoration: none;
+      font-size: 0.85rem;
+      font-family: 'Poppins', sans-serif;
+      cursor: pointer;
+      transition: all 0.2s;
+      display: inline-block;
+    }
+
+    .filter-chip:hover {
+      border-color: var(--accent-color, #d4b78c);
+      background: rgba(212, 183, 140, 0.1);
+    }
+
+    .filter-chip.active {
+      background: rgba(212, 183, 140, 0.2);
+      border-color: var(--accent-color, #d4b78c);
+      color: var(--accent-color, #d4b78c);
+    }
+
+    .filter-chip.selected {
+      background: rgba(212, 183, 140, 0.3);
+      border-color: var(--accent-color, #d4b78c);
+      color: var(--accent-color, #d4b78c);
+    }
+
+    .apply-filters-btn {
+      padding: 0.75rem 1.5rem;
+      background: var(--accent-color, #d4b78c);
+      border: none;
+      border-radius: 6px;
+      color: var(--bg-color, #0b0b0b);
+      font-weight: 600;
+      font-family: 'Poppins', sans-serif;
+      cursor: pointer;
+      transition: all 0.2s;
+      align-self: flex-start;
+    }
+
+    .apply-filters-btn:hover:not(:disabled) {
+      transform: translateY(-2px);
+      box-shadow: 0 4px 12px rgba(212, 183, 140, 0.3);
+    }
+
+    .apply-filters-btn:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+
+    /* Light Mode Styles for Filters and Buttons */
+    html[data-theme="light"] .search-input,
+    html:not([data-theme="dark"]) .search-input,
+    body:not(.theme-dark) .search-input {
+      background: #2d2a22 !important;
+      border: 1px solid rgba(212, 183, 140, 0.25) !important;
+      color: #e6e0d6 !important;
+    }
+
+    html[data-theme="light"] .search-input::placeholder,
+    html:not([data-theme="dark"]) .search-input::placeholder,
+    body:not(.theme-dark) .search-input::placeholder {
+      color: rgba(230, 224, 214, 0.5) !important;
+    }
+
+    html[data-theme="light"] .search-icon,
+    html:not([data-theme="dark"]) .search-icon,
+    body:not(.theme-dark) .search-icon {
+      color: rgba(230, 224, 214, 0.7) !important;
+    }
+
+    html[data-theme="light"] .view-toggle-btn,
+    html:not([data-theme="dark"]) .view-toggle-btn,
+    body:not(.theme-dark) .view-toggle-btn {
+      background: #2d2a22 !important;
+      border: 1px solid rgba(212, 183, 140, 0.25) !important;
+      color: #e6e0d6 !important;
+    }
+
+    html[data-theme="light"] .view-toggle-btn:hover,
+    html:not([data-theme="dark"]) .view-toggle-btn:hover,
+    body:not(.theme-dark) .view-toggle-btn:hover {
+      border-color: #d4b78c !important;
+      background: rgba(212, 183, 140, 0.15) !important;
+    }
+
+    html[data-theme="light"] .view-toggle-btn.active,
+    html:not([data-theme="dark"]) .view-toggle-btn.active,
+    body:not(.theme-dark) .view-toggle-btn.active {
+      background: rgba(212, 183, 140, 0.25) !important;
+      border-color: #d4b78c !important;
+      color: #d4b78c !important;
+    }
+
+    html[data-theme="light"] .filter-toggle-btn,
+    html:not([data-theme="dark"]) .filter-toggle-btn,
+    body:not(.theme-dark) .filter-toggle-btn {
+      background: #2d2a22 !important;
+      border: 1px solid rgba(212, 183, 140, 0.25) !important;
+      color: #e6e0d6 !important;
+    }
+
+    html[data-theme="light"] .filter-toggle-btn:hover,
+    html:not([data-theme="dark"]) .filter-toggle-btn:hover,
+    body:not(.theme-dark) .filter-toggle-btn:hover {
+      border-color: #d4b78c !important;
+      background: rgba(212, 183, 140, 0.15) !important;
+    }
+
+    html[data-theme="light"] .filter-toggle-btn.active,
+    html:not([data-theme="dark"]) .filter-toggle-btn.active,
+    body:not(.theme-dark) .filter-toggle-btn.active {
+      background: rgba(212, 183, 140, 0.25) !important;
+      border-color: #d4b78c !important;
+      color: #d4b78c !important;
+    }
+
+    html[data-theme="light"] .active-filter-badge,
+    html:not([data-theme="dark"]) .active-filter-badge,
+    body:not(.theme-dark) .active-filter-badge {
+      background: rgba(212, 183, 140, 0.25) !important;
+      border: 1px solid #d4b78c !important;
+      color: #e6e0d6 !important;
+    }
+
+    html[data-theme="light"] .remove-filter,
+    html:not([data-theme="dark"]) .remove-filter,
+    body:not(.theme-dark) .remove-filter {
+      color: #d4b78c !important;
+    }
+
+    html[data-theme="light"] .clear-filters,
+    html:not([data-theme="dark"]) .clear-filters,
+    body:not(.theme-dark) .clear-filters {
+      background: rgba(255, 255, 255, 0.08) !important;
+      border: 1px solid rgba(212, 183, 140, 0.25) !important;
+      color: #e6e0d6 !important;
+    }
+
+    html[data-theme="light"] .clear-filters:hover,
+    html:not([data-theme="dark"]) .clear-filters:hover,
+    body:not(.theme-dark) .clear-filters:hover {
+      background: rgba(212, 183, 140, 0.15) !important;
+      border-color: #d4b78c !important;
+    }
+
+    html[data-theme="light"] .filters-row,
+    html:not([data-theme="dark"]) .filters-row,
+    body:not(.theme-dark) .filters-row {
+      background: #2d2a22 !important;
+      border: 1px solid rgba(212, 183, 140, 0.25) !important;
+    }
+
+    html[data-theme="light"] .filter-section-title,
+    html:not([data-theme="dark"]) .filter-section-title,
+    body:not(.theme-dark) .filter-section-title {
+      color: rgba(230, 224, 214, 0.8) !important;
+    }
+
+    html[data-theme="light"] .filter-chip,
+    html:not([data-theme="dark"]) .filter-chip,
+    body:not(.theme-dark) .filter-chip {
+      background: #2d2a22 !important;
+      border: 1px solid rgba(212, 183, 140, 0.25) !important;
+      color: #e6e0d6 !important;
+    }
+
+    html[data-theme="light"] .filter-chip:hover,
+    html:not([data-theme="dark"]) .filter-chip:hover,
+    body:not(.theme-dark) .filter-chip:hover {
+      border-color: #d4b78c !important;
+      background: rgba(212, 183, 140, 0.15) !important;
+    }
+
+    html[data-theme="light"] .filter-chip.active,
+    html:not([data-theme="dark"]) .filter-chip.active,
+    body:not(.theme-dark) .filter-chip.active,
+    html[data-theme="light"] .filter-chip.selected,
+    html:not([data-theme="dark"]) .filter-chip.selected,
+    body:not(.theme-dark) .filter-chip.selected {
+      background: rgba(212, 183, 140, 0.25) !important;
+      border-color: #d4b78c !important;
+      color: #d4b78c !important;
+    }
+
+    html[data-theme="light"] .apply-filters-btn,
+    html:not([data-theme="dark"]) .apply-filters-btn,
+    body:not(.theme-dark) .apply-filters-btn {
+      background: #d4b78c !important;
+      color: #2a1f15 !important;
+    }
+
+    html[data-theme="light"] .apply-filters-btn:hover:not(:disabled),
+    html:not([data-theme="dark"]) .apply-filters-btn:hover:not(:disabled),
+    body:not(.theme-dark) .apply-filters-btn:hover:not(:disabled) {
+      background: #c4a77c !important;
+    }
+
+    html[data-theme="light"] .page-description,
+    html:not([data-theme="dark"]) .page-description,
+    body:not(.theme-dark) .page-description {
+      color: rgba(42, 31, 21, 0.7) !important;
+    }
+
+    html[data-theme="light"] .results-count,
+    html:not([data-theme="dark"]) .results-count,
+    body:not(.theme-dark) .results-count {
+      color: rgba(42, 31, 21, 0.7) !important;
+    }
+
+    .results-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 1.5rem;
+    }
+
+    .results-count {
+      color: var(--text-muted, #999);
+      font-size: 0.9rem;
+      font-family: 'Poppins', sans-serif;
+    }
+
+    .certifications-list {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 1.5rem;
+    }
+
+    .category-section {
+      background: var(--card-bg, rgba(255, 255, 255, 0.02));
+      border: 1px solid var(--border-color, #222);
+      border-radius: 12px;
+      overflow: hidden;
+      transition: all 0.3s ease;
+      cursor: pointer;
+    }
+
+    .category-section:hover {
+      border-color: var(--accent-color, #d4b78c);
+      transform: translateY(-2px);
+      box-shadow: 0 4px 12px rgba(212, 183, 140, 0.15);
+    }
+
+    [data-theme="light"] .category-section {
+      background: #2d2a22;
+      border-color: rgba(212, 183, 140, 0.2);
+    }
+
+    [data-theme="light"] .category-section:hover {
+      background: rgba(45, 42, 34, 0.95);
+      border-color: rgba(212, 183, 140, 0.35);
+      box-shadow: 0 4px 12px rgba(212, 183, 140, 0.12);
+    }
+
+    html[data-theme="light"] .category-title,
+    html:not([data-theme="dark"]) .category-title,
+    body:not(.theme-dark) .category-title {
+      color: #e6e0d6 !important;
+    }
+
+
+    .category-header {
+      padding: 1.5rem 1rem;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+      transition: all 0.3s ease;
+      position: relative;
+    }
+
+    .category-header:hover {
+      background: rgba(212, 183, 140, 0.05);
+    }
+
+    .category-icon-wrapper {
+      width: 56px;
+      height: 56px;
+      margin-bottom: 0.75rem;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: rgba(212, 183, 140, 0.1);
+      border-radius: 12px;
+      transition: all 0.3s ease;
+      color: var(--accent-color, #d4b78c);
+    }
+
+    .category-section:hover .category-icon-wrapper {
+      background: rgba(212, 183, 140, 0.2);
+      transform: scale(1.05);
+    }
+
+
+    .category-title {
+      font-size: 1rem;
+      font-weight: 600;
+      margin: 0;
+      font-family: 'Poppins', sans-serif;
+      text-transform: capitalize;
+      color: var(--fg-color, #e6e0d6);
+    }
+
+
+    .category-content {
+      display: none;
+    }
+    
+    /* Vendor view - show content by default and match category view exactly */
+    .vendor-view-section .category-content {
+      display: block;
+    }
+    
+    /* Vendor view - ensure cards match certification cards exactly */
+    /* Use :global to prevent Astro scoping since cards are created dynamically */
+    :global(.vendor-view-section .category-content) {
+      display: block;
+    }
+    
+    /* Vendor view vendor-content - match category view exactly */
+    :global(.vendor-view-section .vendor-content) {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+      gap: 1rem;
+      padding-left: 0.5rem;
+    }
+    
+    /* Vendor view cert-cards - ensure they get all the same styles */
+    :global(.vendor-view-section .cert-card) {
+      background: var(--card-bg, rgba(255, 255, 255, 0.02));
+      border: 1px solid var(--border-color, #222);
+      border-radius: 12px;
+      padding: 1.75rem 1.5rem;
+      transition: all 0.2s;
+      display: flex;
+      flex-direction: column;
+      min-height: 100%;
+      cursor: pointer;
+    }
+    
+    :global(.vendor-view-section .cert-card:hover) {
+      border-color: var(--accent-color, #d4b78c);
+      background: var(--card-hover-bg, rgba(212, 183, 140, 0.05));
+      transform: translateY(-2px);
+    }
+
+    [data-theme="light"] :global(.vendor-view-section .cert-card) {
+      background: #2d2a22;
+      border-color: rgba(212, 183, 140, 0.2);
+    }
+
+    [data-theme="light"] :global(.vendor-view-section .cert-card:hover) {
+      background: rgba(45, 42, 34, 0.95);
+      border-color: rgba(212, 183, 140, 0.35);
+      box-shadow: 0 4px 12px rgba(212, 183, 140, 0.12);
+    }
+
+    [data-theme="light"] :global(.vendor-view-section .cert-card-title) {
+      color: #e6e0d6;
+    }
+    
+    :global(.vendor-view-section .cert-card-title) {
+      font-size: 1.25rem;
+      font-weight: 600;
+      margin: 0 0 1rem;
+      font-family: 'Poppins', sans-serif;
+      color: var(--fg-color, #e6e0d6);
+      flex-shrink: 0;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+    
+    :global(.vendor-view-section .cert-files) {
+      display: flex;
+      flex-direction: column;
+      gap: 0.75rem;
+      flex-grow: 1;
+    }
+    
+    :global(.vendor-view-section .file-link) {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0.75rem 1rem;
+      background: rgba(255, 255, 255, 0.02);
+      border: 1px solid transparent;
+      border-radius: 6px;
+      color: var(--fg-color, #e6e0d6);
+      text-decoration: none;
+      font-size: 0.9rem;
+      transition: all 0.2s;
+      pointer-events: none; /* Prevent nested clicks */
+    }
+    
+    :global(.vendor-view-section .file-link:hover) {
+      background: rgba(212, 183, 140, 0.1);
+      border-color: var(--accent-color, #d4b78c);
+      color: var(--accent-color, #d4b78c);
+    }
+    
+    :global(.vendor-view-section .file-link-icon) {
+      opacity: 0.5;
+      transition: opacity 0.2s;
+    }
+    
+    :global(.vendor-view-section .file-link:hover .file-link-icon) {
+      opacity: 1;
+    }
+    
+    /* Responsive styles for vendor view - match category view */
+    @media (min-width: 1200px) {
+      :global(.vendor-view-section .vendor-content) {
+        grid-template-columns: repeat(2, 1fr);
+      }
+    }
+    
+    @media (min-width: 900px) and (max-width: 1199px) {
+      :global(.vendor-view-section .vendor-content) {
+        grid-template-columns: repeat(2, 1fr);
+      }
+    }
+    
+    @media (max-width: 768px) {
+      :global(.vendor-view-section .vendor-content) {
+        grid-template-columns: 1fr;
+      }
+      
+      :global(.vendor-view-section .cert-card) {
+        padding: 1.25rem 1rem;
+      }
+      
+      :global(.vendor-view-section .file-link) {
+        padding: 0.625rem 0.75rem;
+        font-size: 0.875rem;
+      }
+    }
+    
+    /* Ensure vendor view cards match category view cards exactly - no overrides needed */
+    /* All styles are inherited from base classes */
+
+    /* Sidebar Drawer Styles - Professional UX Approach */
+    .category-drawer-overlay {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: rgba(0, 0, 0, 0.4);
+      backdrop-filter: blur(4px);
+      z-index: 1000;
+      opacity: 0;
+      visibility: hidden;
+      transition: opacity 0.3s ease, visibility 0.3s ease;
+    }
+
+    .category-drawer-overlay.active {
+      opacity: 1;
+      visibility: visible;
+    }
+
+    .category-drawer {
+      position: fixed;
+      top: 0;
+      right: 0;
+      bottom: 0;
+      width: 100%;
+      max-width: 800px;
+      background: rgba(15, 15, 15, 0.98) !important;
+      border-left: 1px solid rgba(42, 42, 42, 0.9) !important;
+      box-shadow: -10px 0 40px rgba(0, 0, 0, 0.5);
+      z-index: 1001;
+      display: flex;
+      flex-direction: column;
+      transform: translateX(100%);
+      transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+      overflow: hidden;
+      will-change: transform;
+    }
+
+    .category-drawer-overlay.active .category-drawer {
+      transform: translateX(0);
+    }
+
+    .category-drawer-header {
+      padding: 2rem 2.5rem;
+      border-bottom: 1px solid rgba(42, 42, 42, 0.9) !important;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      background: rgba(212, 183, 140, 0.05) !important;
+      flex-shrink: 0;
+    }
+
+    .category-drawer-title {
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+    }
+
+    .category-drawer-icon {
+      width: 64px;
+      height: 64px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: rgba(212, 183, 140, 0.15);
+      border-radius: 16px;
+      color: var(--accent-color, #d4b78c);
+      flex-shrink: 0;
+    }
+
+    .category-drawer-icon svg {
+      width: 36px;
+      height: 36px;
+    }
+
+    .category-drawer-title-text {
+      font-size: 2rem;
+      font-weight: 600;
+      font-family: 'Poppins', sans-serif;
+      color: var(--fg-color, #e6e0d6);
+      text-transform: capitalize;
+      margin: 0;
+      letter-spacing: -0.02em;
+    }
+
+    .category-drawer-close {
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid var(--border-color, #2a2a2a);
+      color: var(--text-muted, #999);
+      font-size: 1.5rem;
+      cursor: pointer;
+      width: 48px;
+      height: 48px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: 12px;
+      transition: all 0.2s ease;
+      line-height: 1;
+    }
+
+    .category-drawer-close:hover {
+      background: rgba(212, 183, 140, 0.1);
+      border-color: var(--accent-color, #d4b78c);
+      color: var(--accent-color, #d4b78c);
+    }
+
+    .category-drawer-content {
+      padding: 2.5rem;
+      overflow-y: auto;
+      flex: 1;
+      background: rgba(15, 15, 15, 0.98) !important;
+      scrollbar-width: thin;
+      scrollbar-color: rgba(212, 183, 140, 0.3) transparent;
+      contain: layout style paint;
+    }
+
+    .drawer-back-button {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      padding: 0.75rem 1.5rem;
+      margin-bottom: 2rem;
+      background: rgba(255, 255, 255, 0.02) !important;
+      border: 1px solid var(--border-color, #222) !important;
+      border-radius: 12px;
+      color: #e6e0d6 !important;
+      cursor: pointer;
+      font-family: 'Poppins', sans-serif;
+      font-size: 1rem;
+      font-weight: 500;
+      transition: all 0.2s ease;
+    }
+
+    .drawer-back-button:hover {
+      background: rgba(212, 183, 140, 0.1);
+      border-color: var(--accent-color, #d4b78c);
+      color: var(--accent-color, #d4b78c);
+    }
+
+
+    .category-drawer-content::-webkit-scrollbar {
+      width: 6px;
+    }
+
+    .category-drawer-content::-webkit-scrollbar-track {
+      background: transparent;
+    }
+
+    .category-drawer-content::-webkit-scrollbar-thumb {
+      background: rgba(212, 183, 140, 0.3);
+      border-radius: 3px;
+    }
+
+    .category-drawer-content::-webkit-scrollbar-thumb:hover {
+      background: rgba(212, 183, 140, 0.5);
+    }
+
+    /* Best Practice Sidebar Navigation */
+    .drawer-nav-section {
+      margin-bottom: 3rem;
+    }
+
+    .drawer-nav-section:last-child {
+      margin-bottom: 0;
+    }
+
+    .drawer-nav-section-header {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      padding: 0;
+      margin-bottom: 1.5rem;
+      color: var(--accent-color, #d4b78c);
+      font-weight: 600;
+      font-size: 1.25rem;
+      font-family: 'Poppins', sans-serif;
+      text-transform: capitalize;
+      letter-spacing: -0.01em;
+      border-bottom: 2px solid rgba(212, 183, 140, 0.3);
+      padding-bottom: 0.75rem;
+    }
+
+    .drawer-nav-section-icon {
+      width: 20px;
+      height: 20px;
+      flex-shrink: 0;
+      color: var(--accent-color, #d4b78c);
+    }
+
+    .drawer-nav-section-icon svg {
+      width: 20px;
+      height: 20px;
+    }
+
+    .drawer-nav-list {
+      list-style: none !important;
+      padding: 0 !important;
+      margin: 0 !important;
+      display: grid !important;
+      grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)) !important;
+      gap: 1rem !important;
+      row-gap: 1rem !important;
+      column-gap: 1rem !important;
+      width: 100% !important;
+    }
+
+    @media (min-width: 480px) {
+      .drawer-nav-list {
+        grid-template-columns: repeat(2, 1fr) !important;
+      }
+    }
+
+    @media (min-width: 768px) {
+      .drawer-nav-list {
+        grid-template-columns: repeat(3, 1fr) !important;
+        max-width: 100%;
+      }
+    }
+    
+    @media (min-width: 1200px) {
+      .drawer-nav-list {
+        grid-template-columns: repeat(3, 1fr) !important;
+      }
+    }
+
+    .drawer-nav-item {
+      margin: 0 !important;
+      padding: 0 !important;
+      display: block !important;
+      width: 100% !important;
+      list-style: none !important;
+    }
+
+    .drawer-nav-link {
+      display: flex !important;
+      flex-direction: column !important;
+      align-items: center !important;
+      justify-content: center !important;
+      gap: 0;
+      padding: 0;
+      color: #e6e0d6 !important;
+      text-decoration: none;
+      font-size: 0.85rem;
+      font-family: 'Poppins', sans-serif;
+      border-radius: 12px;
+      transition: all 0.2s ease;
+      position: relative;
+      background: rgba(255, 255, 255, 0.02) !important;
+      background-color: rgba(255, 255, 255, 0.02) !important;
+      border: 1px solid var(--border-color, #222) !important;
+      width: 100%;
+      aspect-ratio: 1 / 1 !important;
+      min-height: 120px;
+      text-align: center;
+      cursor: pointer;
+      margin: 0 !important;
+    }
+
+    button.drawer-nav-link,
+    a.drawer-nav-link,
+    .category-drawer .drawer-nav-link,
+    .category-drawer-content .drawer-nav-link,
+    .category-drawer button.drawer-nav-link,
+    .category-drawer-content button.drawer-nav-link,
+    .category-drawer a.drawer-nav-link,
+    .category-drawer-content a.drawer-nav-link {
+      background: rgba(255, 255, 255, 0.02) !important;
+      background-color: rgba(255, 255, 255, 0.02) !important;
+      border: 1px solid var(--border-color, #222) !important;
+      border-color: var(--border-color, #222) !important;
+      color: #e6e0d6 !important;
+      -webkit-appearance: none !important;
+      -moz-appearance: none !important;
+      appearance: none !important;
+    }
+    
+    /* Override any button defaults */
+    button.drawer-nav-link {
+      background: rgba(255, 255, 255, 0.02) !important;
+      background-color: rgba(255, 255, 255, 0.02) !important;
+    }
+
+    .drawer-nav-link:hover {
+      border-color: var(--accent-color, #d4b78c) !important;
+      background: rgba(212, 183, 140, 0.05) !important;
+      transform: translateY(-2px);
+      box-shadow: 0 4px 12px rgba(212, 183, 140, 0.15);
+    }
+
+    .drawer-nav-link-icon {
+      width: 56px;
+      height: 56px;
+      margin-bottom: 0.75rem;
+      flex-shrink: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: rgba(212, 183, 140, 0.1);
+      border-radius: 12px;
+      color: var(--accent-color, #d4b78c);
+      transition: all 0.3s ease;
+    }
+
+    .drawer-nav-link-icon svg {
+      width: 32px;
+      height: 32px;
+      display: block;
+      color: inherit;
+    }
+
+    .drawer-nav-link-icon svg path,
+    .drawer-nav-link-icon svg polyline {
+      stroke: currentColor !important;
+      fill: none !important;
+      color: inherit;
+    }
+
+    .drawer-nav-link:hover .drawer-nav-link-icon {
+      background: rgba(212, 183, 140, 0.2);
+      transform: scale(1.05);
+    }
+
+    .drawer-nav-link-text {
+      font-weight: 600;
+      text-transform: capitalize;
+      font-size: 1.1rem
+      text-align: center;
+      line-height: 1.3;
+      word-break: break-word;
+      color: var(--fg-color, #e6e0d6);
+      margin: 0;
+      padding: 0.75rem;
+      font-family: 'Poppins', sans-serif;
+      letter-spacing: -0.01em;
+      width: 100%;
+      height: 100%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex: 1;
+    }
+
+    .drawer-nav-link-badge {
+      background: #d4b78c;
+      color: #0b0b0b;
+      border-radius: 16px;
+      padding: 0.4rem 0.75rem;
+      font-size: 0.85rem;
+      font-weight: 700;
+      font-family: 'Poppins', sans-serif;
+      min-width: 32px;
+      text-align: center;
+      flex-shrink: 0;
+      position: absolute;
+      top: 0.75rem;
+      right: 0.75rem;
+      box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
+    }
+
+    .vendor-item {
+      background: rgba(255, 255, 255, 0.02);
+      border: 1px solid var(--border-color, #2a2a2a);
+      border-radius: 8px;
+      overflow: hidden;
+      transition: all 0.2s ease;
+      will-change: transform;
+    }
+
+    .vendor-item:hover {
+      border-color: rgba(212, 183, 140, 0.3);
+      background: rgba(212, 183, 140, 0.03);
+    }
+
+    .vendor-header {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      cursor: pointer;
+      user-select: none;
+      padding: 0.875rem 1rem;
+      transition: background 0.2s ease;
+    }
+
+    .vendor-header:hover {
+      background: rgba(212, 183, 140, 0.05);
+    }
+
+    .vendor-header-icon {
+      width: 28px;
+      height: 28px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: rgba(212, 183, 140, 0.15);
+      border-radius: 6px;
+      color: var(--accent-color, #d4b78c);
+      flex-shrink: 0;
+    }
+
+    .vendor-header-title {
+      font-size: 1rem;
+      font-weight: 600;
+      font-family: 'Poppins', sans-serif;
+      color: var(--accent-color, #d4b78c);
+      text-transform: capitalize;
+      flex: 1;
+    }
+
+    .vendor-header-toggle {
+      color: var(--text-muted, #999);
+      font-size: 0.75rem;
+      transition: transform 0.2s ease;
+      flex-shrink: 0;
+    }
+
+    .vendor-item.expanded .vendor-header-toggle {
+      transform: rotate(180deg);
+    }
+
+    .vendor-content {
+      max-height: 0;
+      overflow: hidden;
+      transition: max-height 0.3s ease;
+      border-top: 1px solid var(--border-color, #2a2a2a);
+      contain: layout style paint;
+    }
+
+    .vendor-item.expanded .vendor-content {
+      max-height: 5000px;
+    }
+
+    .cert-item {
+      margin: 0;
+      padding: 0;
+      border-left: none;
+      border-bottom: 1px solid var(--border-color, #2a2a2a);
+      background: rgba(255, 255, 255, 0.01);
+      will-change: transform;
+    }
+
+    .cert-item:last-child {
+      border-bottom: none;
+    }
+
+    .cert-item-header {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      padding: 0.75rem 1rem;
+      cursor: pointer;
+      user-select: none;
+      transition: background 0.2s ease;
+    }
+
+    .cert-item-header:hover {
+      background: rgba(212, 183, 140, 0.05);
+    }
+
+    .cert-item-title {
+      font-size: 0.9rem;
+      font-weight: 600;
+      font-family: 'Poppins', sans-serif;
+      color: var(--fg-color, #e6e0d6);
+      margin: 0;
+      padding: 0;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      flex: 1;
+    }
+
+    .cert-item-toggle {
+      color: var(--text-muted, #999);
+      font-size: 0.75rem;
+      transition: transform 0.2s ease;
+      flex-shrink: 0;
+    }
+
+    .cert-item.expanded .cert-item-toggle {
+      transform: rotate(90deg);
+    }
+
+    .cert-item-content {
+      max-height: 0;
+      overflow: hidden;
+      transition: max-height 0.3s ease;
+      padding: 0 1rem;
+      contain: layout style paint;
+    }
+
+    .cert-item.expanded .cert-item-content {
+      max-height: 5000px;
+      padding: 0.75rem 1rem 1rem;
+    }
+
+    .file-list {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+      gap: 0.5rem;
+      padding: 0;
+    }
+
+    @media (min-width: 1200px) {
+      .file-list {
+        grid-template-columns: repeat(4, 1fr);
+      }
+    }
+
+    @media (min-width: 900px) and (max-width: 1199px) {
+      .file-list {
+        grid-template-columns: repeat(3, 1fr);
+      }
+    }
+
+    .file-item {
+      position: relative;
+    }
+
+    .file-link {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      padding: 0.5rem 0.75rem;
+      background: rgba(255, 255, 255, 0.02);
+      border: 1px solid var(--border-color, #2a2a2a);
+      border-radius: 6px;
+      color: var(--text-muted, #999);
+      text-decoration: none;
+      font-size: 0.85rem;
+      font-family: 'Poppins', sans-serif;
+      transition: all 0.15s ease;
+      position: relative;
+    }
+
+    .file-link::before {
+      content: '';
+      position: absolute;
+      left: 0;
+      top: 0;
+      bottom: 0;
+      width: 2px;
+      background: var(--accent-color, #d4b78c);
+      transform: scaleY(0);
+      transition: transform 0.15s ease;
+    }
+
+    .file-link:hover {
+      background: rgba(212, 183, 140, 0.1);
+      border-color: rgba(212, 183, 140, 0.3);
+      color: var(--accent-color, #d4b78c);
+      transform: translateX(2px);
+    }
+
+    .file-link:hover::before {
+      transform: scaleY(1);
+    }
+
+    .file-link-content {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      flex: 1;
+      min-width: 0;
+    }
+
+    .file-link-icon-wrapper {
+      width: 24px;
+      height: 24px;
+      min-width: 24px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: rgba(212, 183, 140, 0.15);
+      border-radius: 6px;
+      flex-shrink: 0;
+      color: var(--accent-color, #d4b78c);
+      font-weight: 600;
+      font-size: 0.75rem;
+      font-family: 'Poppins', sans-serif;
+    }
+
+    .file-link-text {
+      flex: 1;
+      min-width: 0;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      font-weight: 400;
+    }
+
+    .file-link-arrow {
+      opacity: 0.3;
+      transition: all 0.15s ease;
+      flex-shrink: 0;
+      color: var(--text-muted, #999);
+    }
+
+    .file-link-arrow svg {
+      width: 12px;
+      height: 12px;
+    }
+
+    .file-link:hover .file-link-arrow {
+      opacity: 1;
+      transform: translateX(2px);
+      color: var(--accent-color, #d4b78c);
+    }
+
+    .coming-soon-indicator {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 0.75rem;
+      padding: 1.5rem 1rem;
+      background: rgba(212, 183, 140, 0.05);
+      border: 2px dashed rgba(212, 183, 140, 0.3);
+      border-radius: 8px;
+      text-align: center;
+      min-height: 120px;
+    }
+
+    .coming-soon-icon {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 48px;
+      height: 48px;
+      background: rgba(212, 183, 140, 0.15);
+      border-radius: 50%;
+      color: var(--accent-color, #d4b78c);
+      animation: pulse 2s ease-in-out infinite;
+    }
+
+    @keyframes pulse {
+      0%, 100% {
+        opacity: 1;
+        transform: scale(1);
+      }
+      50% {
+        opacity: 0.7;
+        transform: scale(1.05);
+      }
+    }
+
+    .coming-soon-text {
+      font-size: 0.9rem;
+      font-weight: 600;
+      color: var(--accent-color, #d4b78c);
+      font-family: 'Poppins', sans-serif;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+
+    .file-count-badge {
+      display: inline-flex;
+      align-items: center;
+      padding: 0.25rem 0.5rem;
+      background: rgba(212, 183, 140, 0.15);
+      border-radius: 12px;
+      font-size: 0.75rem;
+      font-weight: 600;
+      color: var(--accent-color, #d4b78c);
+      margin-left: 0.5rem;
+    }
+
+    /* Light Mode Styles for Category Drawer */
+    html[data-theme="light"] .category-drawer-overlay,
+    html:not([data-theme="dark"]) .category-drawer-overlay,
+    body:not(.theme-dark) .category-drawer-overlay {
+      background: rgba(0, 0, 0, 0.3) !important;
+    }
+
+    html[data-theme="light"] .category-drawer,
+    html:not([data-theme="dark"]) .category-drawer,
+    body:not(.theme-dark) .category-drawer {
+      background: #2d2a22 !important;
+      border-left: 1px solid rgba(212, 183, 140, 0.25) !important;
+      box-shadow: -10px 0 40px rgba(0, 0, 0, 0.3);
+    }
+
+    html[data-theme="light"] .category-drawer-header,
+    html:not([data-theme="dark"]) .category-drawer-header,
+    body:not(.theme-dark) .category-drawer-header {
+      background: rgba(212, 183, 140, 0.08) !important;
+      border-bottom: 1px solid rgba(212, 183, 140, 0.25) !important;
+    }
+
+    html[data-theme="light"] .category-drawer-title-text,
+    html:not([data-theme="dark"]) .category-drawer-title-text,
+    body:not(.theme-dark) .category-drawer-title-text {
+      color: #e6e0d6 !important;
+    }
+
+    html[data-theme="light"] .category-drawer-icon,
+    html:not([data-theme="dark"]) .category-drawer-icon,
+    body:not(.theme-dark) .category-drawer-icon {
+      background: rgba(212, 183, 140, 0.2) !important;
+      color: #d4b78c !important;
+    }
+
+    html[data-theme="light"] .category-drawer-close,
+    html:not([data-theme="dark"]) .category-drawer-close,
+    body:not(.theme-dark) .category-drawer-close {
+      background: rgba(255, 255, 255, 0.08) !important;
+      border: 1px solid rgba(212, 183, 140, 0.25) !important;
+      color: #e6e0d6 !important;
+    }
+
+    html[data-theme="light"] .category-drawer-close:hover,
+    html:not([data-theme="dark"]) .category-drawer-close:hover,
+    body:not(.theme-dark) .category-drawer-close:hover {
+      background: rgba(212, 183, 140, 0.15) !important;
+      border-color: #d4b78c !important;
+      color: #d4b78c !important;
+    }
+
+    html[data-theme="light"] .category-drawer-content,
+    html:not([data-theme="dark"]) .category-drawer-content,
+    body:not(.theme-dark) .category-drawer-content {
+      background: #2d2a22 !important;
+    }
+
+    html[data-theme="light"] .drawer-back-button,
+    html:not([data-theme="dark"]) .drawer-back-button,
+    body:not(.theme-dark) .drawer-back-button {
+      background: rgba(255, 255, 255, 0.05) !important;
+      border: 1px solid rgba(212, 183, 140, 0.25) !important;
+      color: #e6e0d6 !important;
+    }
+
+    html[data-theme="light"] .drawer-back-button:hover,
+    html:not([data-theme="dark"]) .drawer-back-button:hover,
+    body:not(.theme-dark) .drawer-back-button:hover {
+      background: rgba(212, 183, 140, 0.15) !important;
+      border-color: #d4b78c !important;
+      color: #d4b78c !important;
+    }
+
+    html[data-theme="light"] .drawer-nav-section-header,
+    html:not([data-theme="dark"]) .drawer-nav-section-header,
+    body:not(.theme-dark) .drawer-nav-section-header {
+      color: #d4b78c !important;
+      border-bottom: 2px solid rgba(212, 183, 140, 0.3) !important;
+    }
+
+    html[data-theme="light"] .drawer-nav-section-icon,
+    html:not([data-theme="dark"]) .drawer-nav-section-icon,
+    body:not(.theme-dark) .drawer-nav-section-icon {
+      color: #d4b78c !important;
+    }
+
+    html[data-theme="light"] .drawer-nav-link,
+    html:not([data-theme="dark"]) .drawer-nav-link,
+    body:not(.theme-dark) .drawer-nav-link,
+    html[data-theme="light"] button.drawer-nav-link,
+    html:not([data-theme="dark"]) button.drawer-nav-link,
+    body:not(.theme-dark) button.drawer-nav-link,
+    html[data-theme="light"] a.drawer-nav-link,
+    html:not([data-theme="dark"]) a.drawer-nav-link,
+    body:not(.theme-dark) a.drawer-nav-link {
+      background: rgba(255, 255, 255, 0.05) !important;
+      background-color: rgba(255, 255, 255, 0.05) !important;
+      border: 1px solid rgba(212, 183, 140, 0.25) !important;
+      border-color: rgba(212, 183, 140, 0.25) !important;
+      color: #e6e0d6 !important;
+    }
+
+    html[data-theme="light"] .drawer-nav-link:hover,
+    html:not([data-theme="dark"]) .drawer-nav-link:hover,
+    body:not(.theme-dark) .drawer-nav-link:hover {
+      border-color: #d4b78c !important;
+      background: rgba(212, 183, 140, 0.1) !important;
+    }
+
+    html[data-theme="light"] .drawer-nav-link-text,
+    html:not([data-theme="dark"]) .drawer-nav-link-text,
+    body:not(.theme-dark) .drawer-nav-link-text {
+      color: #e6e0d6 !important;
+    }
+
+    html[data-theme="light"] .drawer-nav-link-icon,
+    html:not([data-theme="dark"]) .drawer-nav-link-icon,
+    body:not(.theme-dark) .drawer-nav-link-icon {
+      background: rgba(212, 183, 140, 0.15) !important;
+      color: #d4b78c !important;
+    }
+
+    html[data-theme="light"] .drawer-nav-link:hover .drawer-nav-link-icon,
+    html:not([data-theme="dark"]) .drawer-nav-link:hover .drawer-nav-link-icon,
+    body:not(.theme-dark) .drawer-nav-link:hover .drawer-nav-link-icon {
+      background: rgba(212, 183, 140, 0.25) !important;
+    }
+
+    html[data-theme="light"] .vendor-item,
+    html:not([data-theme="dark"]) .vendor-item,
+    body:not(.theme-dark) .vendor-item {
+      background: rgba(255, 255, 255, 0.03) !important;
+      border: 1px solid rgba(212, 183, 140, 0.25) !important;
+    }
+
+    html[data-theme="light"] .vendor-item:hover,
+    html:not([data-theme="dark"]) .vendor-item:hover,
+    body:not(.theme-dark) .vendor-item:hover {
+      border-color: rgba(212, 183, 140, 0.4) !important;
+      background: rgba(212, 183, 140, 0.05) !important;
+    }
+
+    html[data-theme="light"] .vendor-header-title,
+    html:not([data-theme="dark"]) .vendor-header-title,
+    body:not(.theme-dark) .vendor-header-title {
+      color: #d4b78c !important;
+    }
+
+    html[data-theme="light"] .vendor-header-icon,
+    html:not([data-theme="dark"]) .vendor-header-icon,
+    body:not(.theme-dark) .vendor-header-icon {
+      background: rgba(212, 183, 140, 0.2) !important;
+      color: #d4b78c !important;
+    }
+
+    html[data-theme="light"] .vendor-header-toggle,
+    html:not([data-theme="dark"]) .vendor-header-toggle,
+    body:not(.theme-dark) .vendor-header-toggle {
+      color: rgba(230, 224, 214, 0.7) !important;
+    }
+
+    html[data-theme="light"] .vendor-content,
+    html:not([data-theme="dark"]) .vendor-content,
+    body:not(.theme-dark) .vendor-content {
+      border-top: 1px solid rgba(212, 183, 140, 0.25) !important;
+    }
+
+    html[data-theme="light"] .cert-item,
+    html:not([data-theme="dark"]) .cert-item,
+    body:not(.theme-dark) .cert-item {
+      background: rgba(255, 255, 255, 0.02) !important;
+      border-bottom: 1px solid rgba(212, 183, 140, 0.25) !important;
+    }
+
+    html[data-theme="light"] .cert-item-title,
+    html:not([data-theme="dark"]) .cert-item-title,
+    body:not(.theme-dark) .cert-item-title {
+      color: #e6e0d6 !important;
+    }
+
+    html[data-theme="light"] .cert-item-toggle,
+    html:not([data-theme="dark"]) .cert-item-toggle,
+    body:not(.theme-dark) .cert-item-toggle {
+      color: rgba(230, 224, 214, 0.7) !important;
+    }
+
+    html[data-theme="light"] .file-link,
+    html:not([data-theme="dark"]) .file-link,
+    body:not(.theme-dark) .file-link {
+      background: rgba(255, 255, 255, 0.05) !important;
+      border: 1px solid rgba(212, 183, 140, 0.25) !important;
+      color: rgba(230, 224, 214, 0.8) !important;
+    }
+
+    html[data-theme="light"] .file-link:hover,
+    html:not([data-theme="dark"]) .file-link:hover,
+    body:not(.theme-dark) .file-link:hover {
+      background: rgba(212, 183, 140, 0.15) !important;
+      border-color: rgba(212, 183, 140, 0.4) !important;
+      color: #d4b78c !important;
+    }
+
+    html[data-theme="light"] .file-link-icon-wrapper,
+    html:not([data-theme="dark"]) .file-link-icon-wrapper,
+    body:not(.theme-dark) .file-link-icon-wrapper {
+      background: rgba(212, 183, 140, 0.2) !important;
+      color: #d4b78c !important;
+    }
+
+    html[data-theme="light"] .file-link-arrow,
+    html:not([data-theme="dark"]) .file-link-arrow,
+    body:not(.theme-dark) .file-link-arrow {
+      color: rgba(230, 224, 214, 0.5) !important;
+    }
+
+    html[data-theme="light"] .file-link:hover .file-link-arrow,
+    html:not([data-theme="dark"]) .file-link:hover .file-link-arrow,
+    body:not(.theme-dark) .file-link:hover .file-link-arrow {
+      color: #d4b78c !important;
+    }
+
+    html[data-theme="light"] .coming-soon-indicator,
+    html:not([data-theme="dark"]) .coming-soon-indicator,
+    body:not(.theme-dark) .coming-soon-indicator {
+      background: rgba(212, 183, 140, 0.08) !important;
+      border: 2px dashed rgba(212, 183, 140, 0.3) !important;
+    }
+
+    html[data-theme="light"] .coming-soon-icon,
+    html:not([data-theme="dark"]) .coming-soon-icon,
+    body:not(.theme-dark) .coming-soon-icon {
+      background: rgba(212, 183, 140, 0.2) !important;
+      color: #d4b78c !important;
+    }
+
+    html[data-theme="light"] .coming-soon-text,
+    html:not([data-theme="dark"]) .coming-soon-text,
+    body:not(.theme-dark) .coming-soon-text {
+      color: #d4b78c !important;
+    }
+
+    html[data-theme="light"] .file-count-badge,
+    html:not([data-theme="dark"]) .file-count-badge,
+    body:not(.theme-dark) .file-count-badge {
+      background: rgba(212, 183, 140, 0.2) !important;
+      color: #d4b78c !important;
+    }
+
+    @media (max-width: 768px) {
+      .category-modal {
+        max-width: 100%;
+        max-height: 90vh;
+        margin: 1rem;
+      }
+
+      .category-modal-header {
+        padding: 1rem 1.5rem;
+      }
+
+      .category-modal-content {
+        padding: 1.5rem;
+      }
+    }
+
+    .vendor-section {
+      margin-bottom: 1.5rem;
+    }
+
+    .vendor-section:last-child {
+      margin-bottom: 0;
+    }
+
+    .vendor-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 1rem;
+      padding: 0.75rem 1rem;
+      background: rgba(212, 183, 140, 0.05);
+      border-radius: 8px;
+      border: 1px solid var(--border-color, #222);
+      cursor: pointer;
+      transition: all 0.2s ease;
+    }
+
+    .vendor-header:hover {
+      background: rgba(212, 183, 140, 0.1);
+      border-color: var(--accent-color, #d4b78c);
+    }
+
+    .vendor-title {
+      font-size: 1rem;
+      font-weight: 600;
+      margin: 0;
+      font-family: 'Poppins', sans-serif;
+      text-transform: capitalize;
+      color: var(--accent-color, #d4b78c);
+    }
+
+    [data-theme="light"] .vendor-title {
+      color: #d4b78c;
+    }
+
+    .vendor-toggle {
+      color: var(--text-muted, #999);
+      transition: transform 0.3s ease;
+      font-size: 0.9rem;
+    }
+
+    .vendor-section.collapsed .vendor-toggle {
+      transform: rotate(-90deg);
+    }
+
+    .vendor-content {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+      gap: 1rem;
+      padding-left: 0.5rem;
+    }
+
+    .vendor-section.collapsed .vendor-content {
+      display: none;
+    }
+
+    .cert-card {
+      background: var(--card-bg, rgba(255, 255, 255, 0.02));
+      border: 1px solid var(--border-color, #222);
+      border-radius: 12px;
+      padding: 1.75rem 1.5rem;
+      transition: all 0.2s;
+      display: flex;
+      flex-direction: column;
+      min-height: 100%;
+    }
+
+    .cert-card:hover {
+      border-color: var(--accent-color, #d4b78c);
+      background: var(--card-hover-bg, rgba(212, 183, 140, 0.05));
+      transform: translateY(-2px);
+    }
+
+    [data-theme="light"] .cert-card {
+      background: #2d2a22;
+      border-color: rgba(212, 183, 140, 0.2);
+    }
+
+    [data-theme="light"] .cert-card:hover {
+      background: rgba(45, 42, 34, 0.95);
+      border-color: rgba(212, 183, 140, 0.35);
+      box-shadow: 0 4px 12px rgba(212, 183, 140, 0.12);
+    }
+
+    [data-theme="light"] .cert-card-title {
+      color: #e6e0d6;
+    }
+
+    .cert-card-title {
+      font-size: 1.25rem;
+      font-weight: 600;
+      margin: 0 0 1rem;
+      font-family: 'Poppins', sans-serif;
+      color: var(--fg-color, #e6e0d6);
+      flex-shrink: 0;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+
+    .cert-files {
+      display: flex;
+      flex-direction: column;
+      gap: 0.75rem;
+      flex-grow: 1;
+    }
+
+    .file-link {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0.75rem 1rem;
+      background: rgba(255, 255, 255, 0.02);
+      border: 1px solid transparent;
+      border-radius: 6px;
+      color: var(--fg-color, #e6e0d6);
+      text-decoration: none;
+      font-size: 0.9rem;
+      transition: all 0.2s;
+    }
+
+    .file-link:hover {
+      background: rgba(212, 183, 140, 0.1);
+      border-color: var(--accent-color, #d4b78c);
+      color: var(--accent-color, #d4b78c);
+    }
+
+    [data-theme="light"] .file-link {
+      background: rgba(45, 42, 34, 0.4);
+      border-color: transparent;
+      color: #e6e0d6;
+    }
+
+    [data-theme="light"] .file-link:hover {
+      background: rgba(212, 183, 140, 0.2);
+      border-color: rgba(212, 183, 140, 0.3);
+      color: #d4b78c;
+    }
+
+    .file-link-icon {
+      opacity: 0.5;
+      transition: opacity 0.2s;
+    }
+
+    .file-link:hover .file-link-icon {
+      opacity: 1;
+    }
+
+    .empty-state {
+      text-align: center;
+      padding: 4rem 2rem;
+      color: var(--text-muted, #999);
+    }
+
+    .empty-state h2 {
+      font-size: 1.5rem;
+      margin: 0 0 0.5rem;
+      font-family: 'Poppins', sans-serif;
+    }
+
+    @media (min-width: 1200px) {
+      .certifications-list {
+        grid-template-columns: repeat(3, 1fr);
+      }
+      .vendor-content {
+        grid-template-columns: repeat(2, 1fr);
+      }
+    }
+
+    @media (min-width: 900px) and (max-width: 1199px) {
+      .certifications-list {
+        grid-template-columns: repeat(3, 1fr);
+      }
+      .vendor-content {
+        grid-template-columns: repeat(2, 1fr);
+      }
+    }
+
+    @media (max-width: 768px) {
+      .certifications-container {
+        padding: 1rem;
+      }
+
+      .page-title {
+        font-size: 2rem;
+      }
+
+      .certifications-list {
+        grid-template-columns: 1fr;
+      }
+
+      .vendor-content {
+        grid-template-columns: 1fr;
+      }
+
+      .category-icon-wrapper {
+        width: 48px;
+        height: 48px;
+      }
+
+      .category-drawer {
+        max-width: 100%;
+        width: 100%;
+      }
+
+      .category-drawer-header {
+        padding: 1.25rem 1.5rem;
+      }
+
+      .category-drawer-title-text {
+        font-size: 1.25rem;
+      }
+
+      .category-drawer-icon {
+        width: 40px;
+        height: 40px;
+      }
+
+      .category-drawer-content {
+        padding: 1rem;
+      }
+
+      .category-drawer-close {
+        width: 36px;
+        height: 36px;
+        font-size: 1.25rem;
+        border-radius: 8px;
+      }
+
+      .drawer-back-button {
+        padding: 0.5rem 1rem;
+        font-size: 0.875rem;
+        margin-bottom: 1.5rem;
+        gap: 0.5rem;
+        border-radius: 8px;
+      }
+
+      .file-list {
+        grid-template-columns: 1fr;
+      }
+
+      .file-link {
+        padding: 0.625rem 0.75rem;
+        font-size: 0.875rem;
+      }
+
+      .file-link-icon-wrapper {
+        width: 18px;
+        height: 18px;
+      }
+
+      .cert-item-title {
+        font-size: 0.875rem;
+      }
+
+      .vendor-header {
+        padding: 0.75rem;
+      }
+
+      .vendor-list {
+        grid-template-columns: repeat(auto-fill, minmax(80px, 1fr));
+        gap: 0.75rem;
+      }
+
+      .icon-card {
+        min-height: 100px;
+        padding: 0.75rem;
+      }
+
+      .icon-card-icon {
+        width: 40px;
+        height: 40px;
+      }
+
+      .icon-card-icon svg {
+        width: 20px;
+        height: 20px;
+      }
+
+      .icon-card-title {
+        font-size: 0.7rem;
+      }
+
+      .icon-card-badge {
+        width: 20px;
+        height: 20px;
+        font-size: 0.65rem;
+        top: 0.25rem;
+        right: 0.25rem;
+      }
+
+      .drawer-nav-section {
+        margin-bottom: 1rem;
+      }
+
+      .drawer-nav-section-header {
+        padding: 0.4rem 0.625rem;
+        font-size: 0.8rem;
+        margin-bottom: 0.25rem;
+      }
+
+      .drawer-nav-section-icon {
+        width: 12px;
+        height: 12px;
+      }
+
+      .drawer-nav-section-icon svg {
+        width: 12px;
+        height: 12px;
+      }
+
+      .drawer-nav-list {
+        grid-template-columns: repeat(2, 1fr) !important;
+        gap: 0.5rem;
+      }
+
+      .drawer-nav-link {
+        padding: 0.625rem 0.5rem;
+        gap: 0.375rem;
+        min-height: 70px !important;
+        aspect-ratio: auto !important;
+        flex-direction: column;
+      }
+
+      .drawer-nav-link-icon {
+        width: 32px;
+        height: 32px;
+        margin-bottom: 0.25rem;
+      }
+
+      .drawer-nav-link-icon svg {
+        width: 20px;
+        height: 20px;
+      }
+
+      .drawer-nav-link-text {
+        font-size: 0.75rem;
+        padding: 0.25rem;
+        line-height: 1.2;
+      }
+
+      .drawer-nav-link-badge {
+        padding: 0.2rem 0.5rem;
+        font-size: 0.7rem;
+        min-width: 24px;
+        top: 0.4rem;
+        right: 0.4rem;
+      }
+
+      .vendor-group-header {
+        padding: 0.625rem 0.75rem;
+      }
+
+      .vendor-group-icon {
+        width: 28px;
+        height: 28px;
+      }
+
+      .vendor-group-title {
+        font-size: 0.9rem;
+      }
+    }
+
+    @media (max-width: 480px) {
+      .drawer-nav-list {
+        grid-template-columns: repeat(2, 1fr) !important;
+        gap: 0.375rem;
+      }
+
+      .drawer-nav-link {
+        padding: 0.5rem 0.375rem;
+        gap: 0.25rem;
+        min-height: 60px !important;
+      }
+
+      .drawer-nav-link-icon {
+        width: 28px;
+        height: 28px;
+        margin-bottom: 0.2rem;
+      }
+
+      .drawer-nav-link-icon svg {
+        width: 18px;
+        height: 18px;
+      }
+
+      .drawer-nav-link-text {
+        font-size: 0.7rem;
+        padding: 0.2rem;
+      }
+
+      .drawer-nav-link-badge {
+        padding: 0.15rem 0.4rem;
+        font-size: 0.65rem;
+        min-width: 20px;
+        top: 0.3rem;
+        right: 0.3rem;
+      }
+
+      .category-drawer-close {
+        width: 32px;
+        height: 32px;
+        font-size: 1.1rem;
+      }
+
+      .drawer-back-button {
+        padding: 0.4rem 0.75rem;
+        font-size: 0.8rem;
+        margin-bottom: 1rem;
+      }
+    }
+  </style>
+
+  <script is:inline>
+    document.body.setAttribute('data-page', 'certifications');
+  </script>
+
+  <div class="certifications-container" data-page-type="certifications">
+    <div class="page-header">
+      <h1 class="page-title">Certifications</h1>
+      <p class="page-description">
+        Comprehensive notes, cheat sheets, and exam preparation guides for cybersecurity certifications.
+      </p>
+    </div>
+
+    <!-- Search Section -->
+    <div class="search-section">
+      <div class="search-bar">
+        <span class="search-icon">
+          <Icon name="search" size={20} />
+        </span>
+        <input 
+          type="text" 
+          id="search-input" 
+          class="search-input" 
+          placeholder="Search certifications, topics, vendors..."
+          value={searchQuery}
+          autocomplete="off"
+        />
+      </div>
+
+      <div class="filter-toggle-container">
+        <!-- View Toggle Button - Simplified -->
+        <button 
+          class="view-toggle-btn" 
+          id="view-toggle-btn"
+          title="Toggle between Categories and Vendors view"
+        >
+          <span id="view-toggle-icon">
+            <Icon name="grid" size={18} />
+          </span>
+          <span id="view-toggle-text">Categories</span>
+        </button>
+        
+        <button class="filter-toggle-btn" id="filter-toggle-btn">
+          <Icon name="tags" size={18} />
+          <span>Filters</span>
+        </button>
+        {(categoryFilter || vendorFilter || certFilter) && (
+          <div class="active-filters" id="active-filters">
+            {categoryFilter && (
+              <div class="active-filter-badge">
+                <span>Category: {categoryFilter.replace(/-/g, ' ')}</span>
+                <button 
+                  class="remove-filter" 
+                  data-remove-category
+                  title="Remove category filter"
+                >
+                  ×
+                </button>
+              </div>
+            )}
+            {vendorFilter && (
+              <div class="active-filter-badge">
+                <span>Vendor: {vendorFilter.replace(/-/g, ' ')}</span>
+                <button 
+                  class="remove-filter" 
+                  data-remove-vendor
+                  title="Remove vendor filter"
+                >
+                  ×
+                </button>
+              </div>
+            )}
+            {certFilter && (
+              <div class="active-filter-badge">
+                <span>Cert: {certFilter.replace(/\d+-/g, '').replace(/-/g, ' ')}</span>
+                <button 
+                  class="remove-filter" 
+                  data-remove-cert
+                  title="Remove certification filter"
+                >
+                  ×
+                </button>
+              </div>
+            )}
+            <button class="clear-filters" onclick="window.location.href='/certifications'">Clear All</button>
+          </div>
+        )}
+      </div>
+
+      <div class="filters-row" id="filters-row">
+        {allCategories.length > 0 && (
+          <div class="filter-section">
+            <div class="filter-section-title">Categories</div>
+            <div class="filter-chips">
+              <button 
+                type="button"
+                class={`filter-chip filter-category ${!categoryFilter ? 'active' : ''}`}
+                data-filter-type="category"
+                data-filter-value=""
+              >
+                All
+              </button>
+              {allCategories.map(cat => (
+                <button 
+                  type="button"
+                  class={`filter-chip filter-category ${categoryFilter === cat ? 'active' : ''}`}
+                  data-filter-type="category"
+                  data-filter-value={cat}
+                >
+                  {cat.replace(/-/g, ' ')}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {allVendors.length > 0 && (
+          <div class="filter-section">
+            <div class="filter-section-title">Vendors</div>
+            <div class="filter-chips">
+              <button 
+                type="button"
+                class={`filter-chip filter-vendor ${!vendorFilter ? 'active' : ''}`}
+                data-filter-type="vendor"
+                data-filter-value=""
+              >
+                All
+              </button>
+              {allVendors.map(vendor => (
+                <button 
+                  type="button"
+                  class={`filter-chip filter-vendor ${vendorFilter === vendor ? 'active' : ''}`}
+                  data-filter-type="vendor"
+                  data-filter-value={vendor}
+                >
+                  {vendor.replace(/-/g, ' ')}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {allCertifications.length > 0 && (
+          <div class="filter-section">
+            <div class="filter-section-title">Certifications</div>
+            <div class="filter-chips">
+              <button 
+                type="button"
+                class={`filter-chip filter-cert ${!certFilter ? 'active' : ''}`}
+                data-filter-type="certification"
+                data-filter-value=""
+              >
+                All
+              </button>
+              {allCertifications.map(cert => (
+                <button 
+                  type="button"
+                  class={`filter-chip filter-cert ${certFilter === cert ? 'active' : ''}`}
+                  data-filter-type="certification"
+                  data-filter-value={cert}
+                >
+                  {cert.replace(/\d+-/g, '').replace(/-/g, ' ')}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+
+        <button type="button" class="apply-filters-btn" id="apply-filters-btn">
+          Apply Filters
+        </button>
+      </div>
+    </div>
+
+    <!-- Results Section -->
+    <div class="results-header">
+      <div class="results-count" id="results-count">
+        {Object.values(filteredGroupedCerts).reduce((acc, vendors) => 
+          acc + Object.values(vendors).reduce((acc2, certs) => 
+            acc2 + Object.keys(certs).length, 0), 0)} certifications
+      </div>
+    </div>
+
+    <!-- Certifications List -->
+    {Object.keys(filteredGroupedCerts).length > 0 ? (
+      <div class="certifications-list" id="certifications-list" data-view="categories" data-grouped-certs={JSON.stringify(filteredGroupedCerts)}>
+        {Object.entries(filteredGroupedCerts).map(([category, vendors]) => {
+          const categoryIconName = getCategoryIcon(category);
+          // Serialize the vendors data for JavaScript access
+          const vendorsData = JSON.stringify(
+            Object.entries(vendors).map(([vendor, certs]) => [
+              vendor,
+              Object.entries(certs)
+                .filter(([certName]) => certName !== 'general') // Filter out "general" placeholder certifications
+                .map(([certName, files]) => [
+                certName,
+                files.map(f => ({
+                  title: f.data.title || generateTitleFromFilename(f.id.split('/').pop()?.replace('.md', '') || ''),
+                  href: `/certifications/${f.id.replace(/\.md$/, '')}`
+                }))
+              ])
+            ])
+          );
+          return (
+            <div class="category-section" data-category={category} data-vendors={vendorsData}>
+              <div class="category-header" data-category-name={category} data-category-icon={categoryIconName}>
+                <div class="category-icon-wrapper">
+                  <Icon name={categoryIconName} size={32} />
+                </div>
+                <h2 class="category-title">{category.replace(/-/g, ' ')}</h2>
+              </div>
+              <div class="category-content">
+                {Object.entries(vendors).map(([vendor, certs]) => (
+                  <div class="vendor-section" data-vendor={vendor}>
+                    <div class="vendor-header" data-toggle-vendor>
+                      <h3 class="vendor-title">{vendor.replace(/-/g, ' ')}</h3>
+                      <span class="vendor-toggle">▼</span>
+                    </div>
+                    <div class="vendor-content">
+                      {Object.entries(certs)
+                        .filter(([certName]) => certName !== 'general') // Filter out "general" placeholder certifications
+                        .map(([certName, files]) => {
+                        const certTitle = formatCertificationName(generateTitleFromFilename(certName));
+                        const searchableText = `${category} ${vendor} ${certName} ${certTitle} ${files.map(f => f.data.title || f.id).join(' ')}`.toLowerCase();
+                        
+                        // Check if this certification only has a README file
+                        // Only show "coming soon" for actual certifications (not "general" placeholder)
+                        const isReadmeOnly = certName !== 'general' && 
+                          files.length === 1 && 
+                          files[0].id.toLowerCase().includes('readme');
+                        
+                        return (
+                          <div class="cert-card" data-searchable={searchableText} data-category={category} data-vendor={vendor} data-certification={certName}>
+                            <h4 class="cert-card-title">{certTitle}</h4>
+                            <div class="cert-files">
+                              {isReadmeOnly ? (
+                                <div class="coming-soon-indicator">
+                                  <div class="coming-soon-icon">
+                                    <Icon name="chain" size={24} />
+                                  </div>
+                                  <span class="coming-soon-text">Coming Soon</span>
+                                </div>
+                              ) : (
+                                files.map((file) => {
+                                const fileTitle = file.data.title || generateTitleFromFilename(file.id.split('/').pop()?.replace('.md', '') || '');
+                                const fileHref = `/certifications/${file.id.replace(/\.md$/, '')}`;
+                                return (
+                                  <a href={fileHref} class="file-link">
+                                    <span>{fileTitle}</span>
+                                    <Icon name="home" size={14} class="file-link-icon" />
+                                  </a>
+                                );
+                                })
+                              )}
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    ) : (
+      <div class="empty-state" id="no-results">
+        <h2>No certifications found</h2>
+        <p>Try adjusting your search or filters</p>
+      </div>
+    )}
+
+    <!-- Category Drawer Sidebar -->
+    <div class="category-drawer-overlay" id="category-drawer-overlay">
+      <div class="category-drawer" id="category-drawer">
+        <div class="category-drawer-header">
+          <div class="category-drawer-title">
+            <div class="category-drawer-icon" id="category-drawer-icon"></div>
+            <h2 class="category-drawer-title-text" id="category-drawer-title-text"></h2>
+          </div>
+          <button class="category-drawer-close" id="category-drawer-close" aria-label="Close">×</button>
+        </div>
+        <div class="category-drawer-content" id="category-drawer-content">
+          <!-- Content will be populated here -->
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // Global state management
+    let selectedFilters = {
+      category: '',
+      vendor: '',
+      certification: ''
+    };
+
+    // Function to get current filters from URL
+    function getCurrentFilters() {
+      const urlParams = new URLSearchParams(window.location.search);
+      return {
+        category: urlParams.get('category') || '',
+        vendor: urlParams.get('vendor') || '',
+        certification: urlParams.get('certification') || '',
+        search: urlParams.get('search') || ''
+      };
+    }
+
+    // Helper function to ensure content is rendered before animation
+    // This is critical for fast scrolling scenarios
+    function ensureContentRendered(element, contentSelector, expandedClass) {
+      if (!element) return;
+      
+      const content = contentSelector ? element.querySelector(contentSelector) : element;
+      if (!content) return;
+      
+      // First, temporarily remove max-height constraint to measure actual height
+      const wasExpanded = element.classList.contains(expandedClass);
+      const originalMaxHeight = content.style.maxHeight;
+      const originalTransition = content.style.transition;
+      
+      // Temporarily disable transition and set max-height to auto to measure
+      content.style.transition = 'none';
+      if (!wasExpanded) {
+        element.classList.add(expandedClass);
+        content.style.maxHeight = 'none';
+      }
+      
+      // Force layout calculation
+      void content.offsetHeight;
+      void content.scrollHeight;
+      
+      // Get the actual height
+      const actualHeight = content.scrollHeight;
+      
+      // Reset to collapsed state temporarily
+      if (!wasExpanded) {
+        element.classList.remove(expandedClass);
+        content.style.maxHeight = '0px';
+      }
+      
+      // Force another layout
+      void content.offsetHeight;
+      
+      // Now animate with explicit height
+      requestAnimationFrame(() => {
+        if (!wasExpanded) {
+          element.classList.add(expandedClass);
+        }
+        content.style.maxHeight = actualHeight + 'px';
+        content.style.transition = originalTransition || '';
+        
+        // Wait for transition to complete, then set to auto
+        requestAnimationFrame(() => {
+          requestAnimationFrame(() => {
+            if (element.classList.contains(expandedClass)) {
+              content.style.maxHeight = '';
+            }
+          });
+        });
+      });
+    }
+
+    // Function to initialize filter state
+    function initializeFilterState() {
+      const current = getCurrentFilters();
+      selectedFilters = {
+        category: current.category,
+        vendor: current.vendor,
+        certification: current.certification
+      };
+      
+      // Initialize filter chips with current state
+      document.querySelectorAll('.filter-chip[data-filter-type]').forEach(chip => {
+        const filterType = chip.dataset.filterType;
+        const filterValue = chip.dataset.filterValue || '';
+        
+        chip.classList.remove('active', 'selected');
+        if (selectedFilters[filterType] === filterValue) {
+          chip.classList.add('active');
+        }
+      });
+      
+      updateApplyButton();
+    }
+
+    // Function to update apply button state
+    function updateApplyButton() {
+      const applyFiltersBtn = document.getElementById('apply-filters-btn');
+      if (!applyFiltersBtn) return;
+      
+      const current = getCurrentFilters();
+      const hasChanges = 
+        selectedFilters.category !== current.category ||
+        selectedFilters.vendor !== current.vendor ||
+        selectedFilters.certification !== current.certification;
+      
+      if (hasChanges) {
+        applyFiltersBtn.disabled = false;
+        applyFiltersBtn.style.opacity = '1';
+      } else {
+        applyFiltersBtn.disabled = true;
+        applyFiltersBtn.style.opacity = '0.5';
+      }
+    }
+
+    // View toggle state
+    let currentView = 'categories'; // 'categories' or 'vendors'
+    
+    // Group certifications by vendor -> category -> certification
+    function groupByVendor(groupedCerts) {
+      const vendorGrouped = {};
+      
+      Object.entries(groupedCerts).forEach(([category, vendors]) => {
+        Object.entries(vendors).forEach(([vendor, certs]) => {
+          if (!vendorGrouped[vendor]) {
+            vendorGrouped[vendor] = {};
+          }
+          if (!vendorGrouped[vendor][category]) {
+            vendorGrouped[vendor][category] = {};
+          }
+          Object.entries(certs).forEach(([certName, files]) => {
+            if (!vendorGrouped[vendor][category][certName]) {
+              vendorGrouped[vendor][category][certName] = [];
+            }
+            vendorGrouped[vendor][category][certName] = files;
+          });
+        });
+      });
+      
+      return vendorGrouped;
+    }
+    
+    // Render vendor view with cards
+    function renderVendorView() {
+      const certificationsList = document.getElementById('certifications-list');
+      if (!certificationsList) return;
+      
+      // Get data from the data attribute (server-side rendered)
+      let allGroupedData = {};
+      const groupedCertsStr = certificationsList.dataset.groupedCerts;
+      
+      if (groupedCertsStr) {
+        try {
+          allGroupedData = JSON.parse(groupedCertsStr);
+        } catch (err) {
+          if (import.meta.env.DEV) {
+            console.error('Error parsing grouped certs data:', err);
+          }
+          // Fallback: try to extract from DOM
+          const categorySections = Array.from(document.querySelectorAll('.category-section[data-category]'));
+          categorySections.forEach(section => {
+            const category = section.dataset.category;
+            const vendorsDataStr = section.dataset.vendors;
+            if (category && vendorsDataStr) {
+              try {
+                const vendorsData = JSON.parse(vendorsDataStr);
+                if (!allGroupedData[category]) {
+                  allGroupedData[category] = {};
+                }
+                vendorsData.forEach(([vendor, certs]) => {
+                  if (!allGroupedData[category][vendor]) {
+                    allGroupedData[category][vendor] = {};
+                  }
+                  certs.forEach(([certName, files]) => {
+                    allGroupedData[category][vendor][certName] = files;
+                  });
+                });
+              } catch (err) {
+                if (import.meta.env.DEV) {
+                  console.error('Error parsing vendors data:', err);
+                }
+              }
+            }
+          });
+        }
+      } else {
+        // Fallback: extract from DOM if data attribute not available
+        const categorySections = Array.from(document.querySelectorAll('.category-section[data-category]'));
+        categorySections.forEach(section => {
+          const category = section.dataset.category;
+          const vendorsDataStr = section.dataset.vendors;
+          if (category && vendorsDataStr) {
+            try {
+              const vendorsData = JSON.parse(vendorsDataStr);
+              if (!allGroupedData[category]) {
+                allGroupedData[category] = {};
+              }
+              vendorsData.forEach(([vendor, certs]) => {
+                if (!allGroupedData[category][vendor]) {
+                  allGroupedData[category][vendor] = {};
+                }
+                certs.forEach(([certName, files]) => {
+                  allGroupedData[category][vendor][certName] = files;
+                });
+              });
+            } catch (err) {
+              if (import.meta.env.DEV) {
+                console.error('Error parsing vendors data:', err);
+              }
+            }
+          }
+        });
+      }
+      
+      const vendorGrouped = groupByVendor(allGroupedData);
+      
+      // Clear and rebuild
+      certificationsList.innerHTML = '';
+      certificationsList.dataset.view = 'vendors';
+      
+      Object.entries(vendorGrouped).forEach(([vendor, categories]) => {
+        const vendorSection = document.createElement('div');
+        vendorSection.className = 'category-section vendor-view-section';
+        vendorSection.dataset.vendor = vendor;
+        
+        // Serialize categories data
+        const categoriesData = JSON.stringify(
+          Object.entries(categories).map(([category, certs]) => [
+            category,
+            Object.entries(certs).map(([certName, files]) => [certName, files])
+          ])
+        );
+        vendorSection.dataset.categories = categoriesData;
+        
+        // Count total certifications for this vendor
+        const totalCerts = Object.values(categories).reduce((sum, certs) => {
+          return sum + Object.keys(certs).filter(name => name !== 'general').length;
+        }, 0);
+        
+        const header = document.createElement('div');
+        header.className = 'category-header';
+        header.dataset.vendorName = vendor;
+        header.style.cursor = 'pointer';
+        
+        const iconWrapper = document.createElement('div');
+        iconWrapper.className = 'category-icon-wrapper';
+        iconWrapper.innerHTML = `<svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M23 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg>`;
+        
+        const title = document.createElement('h2');
+        title.className = 'category-title';
+        title.textContent = vendor.replace(/-/g, ' ');
+        
+        header.appendChild(iconWrapper);
+        header.appendChild(title);
+        vendorSection.appendChild(header);
+        
+        // Note: Header clicks are handled by global event listener (line ~2514)
+        // which checks for .category-header[data-vendor-name] when currentView === 'vendors'
+        
+        // Add content with category cards - match EXACT structure from category view
+        // Category view: <div class="category-content"><div class="vendor-section"><div class="vendor-content">...</div></div></div>
+        // For vendor view, we'll use the same structure but without the vendor-section wrapper
+        const content = document.createElement('div');
+        content.className = 'category-content';
+        
+        // Create vendor-content wrapper - match exact category view vendor-content style
+        const vendorContentWrapper = document.createElement('div');
+        vendorContentWrapper.className = 'vendor-content';
+        // CSS will handle the grid layout and padding
+        
+        // Create category cards - use innerHTML to match EXACT certification card structure
+        Object.entries(categories).forEach(([category, certs]) => {
+          const certCount = Object.keys(certs).filter(name => name !== 'general').length;
+          
+          // Format category title exactly like generateTitleFromFilename
+          const categoryTitle = category
+            .replace(/^\d+-/, '')
+            .replace(/-/g, ' ')
+            .replace(/\b\w/g, l => l.toUpperCase());
+          
+          // Create card using innerHTML to match EXACT structure from category view
+          // This ensures the HTML is identical to what Astro renders
+          const categoryCard = document.createElement('div');
+          categoryCard.className = 'cert-card';
+          categoryCard.dataset.category = category;
+          categoryCard.dataset.vendor = vendor;
+          categoryCard.dataset.searchable = `${vendor} ${category}`.toLowerCase();
+          
+          // Use innerHTML to create structure - use div instead of anchor for accessibility
+          // Since this is just a display element (not a link), use div to avoid invalid href
+          categoryCard.innerHTML = `
+            <h4 class="cert-card-title">${categoryTitle}</h4>
+            <div class="cert-files">
+              <div class="file-link" role="presentation" aria-label="${certCount} certification${certCount !== 1 ? 's' : ''}">
+                <span>${certCount} certification${certCount !== 1 ? 's' : ''}</span>
+                <span class="icon file-link-icon" aria-hidden="true">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path>
+                    <polyline points="9 22 9 12 15 12 15 22"></polyline>
+                  </svg>
+                </span>
+              </div>
+            </div>
+          `;
+          
+          // Store vendor and categories data on the card for event delegation
+          categoryCard.dataset.vendorName = vendor;
+          categoryCard.dataset.categoriesData = JSON.stringify(
+            Object.entries(categories).map(([cat, certs]) => [
+              cat,
+              Object.entries(certs).map(([certName, files]) => [certName, files])
+            ])
+          );
+          
+          vendorContentWrapper.appendChild(categoryCard);
+        });
+        
+        content.appendChild(vendorContentWrapper);
+        vendorSection.appendChild(content);
+        
+        certificationsList.appendChild(vendorSection);
+      });
+      
+      // Re-attach event listeners for vendor headers (in case of re-render)
+      document.querySelectorAll('.category-header[data-vendor-name]').forEach(header => {
+        header.style.cursor = 'pointer';
+        
+        // Remove existing listeners to avoid duplicates
+        const newHeader = header.cloneNode(true);
+        header.parentNode.replaceChild(newHeader, header);
+        
+        // Add fresh listener
+        newHeader.addEventListener('click', (e) => {
+          e.stopPropagation();
+          const vendorSection = newHeader.closest('.vendor-view-section');
+          if (vendorSection) {
+            const vendor = newHeader.dataset.vendorName;
+            const categoriesDataStr = vendorSection.dataset.categories;
+            if (vendor && categoriesDataStr) {
+              try {
+                const categoriesData = JSON.parse(categoriesDataStr);
+                if (typeof openVendorCategoriesDrawer === 'function') {
+                  openVendorCategoriesDrawer(vendor, categoriesData);
+                } else {
+                  if (import.meta.env.DEV) {
+                    console.error('openVendorCategoriesDrawer function not found');
+                  }
+                }
+              } catch (err) {
+                if (import.meta.env.DEV) {
+                  console.error('Error parsing categories data:', err);
+                }
+              }
+            }
+          }
+        });
+      });
+    }
+
+    // Function to initialize all event listeners
+    function initializeCertificationsPage() {
+      const searchInput = document.getElementById('search-input');
+      const certificationsList = document.getElementById('certifications-list');
+      const resultsCount = document.getElementById('results-count');
+      const noResults = document.getElementById('no-results');
+      const certCards = Array.from(document.querySelectorAll('.cert-card'));
+      const filterToggleBtn = document.getElementById('filter-toggle-btn');
+      const filtersRow = document.getElementById('filters-row');
+      
+      // View toggle button - simplified
+      const viewToggleBtn = document.getElementById('view-toggle-btn');
+      const viewToggleText = document.getElementById('view-toggle-text');
+      
+      // Check URL for view parameter
+      const urlParams = new URLSearchParams(window.location.search);
+      const viewParam = urlParams.get('view') || 'categories';
+      currentView = viewParam === 'vendors' ? 'vendors' : 'categories';
+
+      // Get current filters from URL
+      const current = getCurrentFilters();
+      const currentCategoryFilter = current.category;
+      const currentVendorFilter = current.vendor;
+      const currentCertFilter = current.certification;
+      const currentSearchQuery = current.search;
+
+      // Initialize filter state
+      initializeFilterState();
+      
+      // Initialize view toggle - simplified single button
+      if (viewToggleBtn) {
+        // Update button state and text
+        const updateToggleButton = () => {
+          const iconContainer = document.getElementById('view-toggle-icon');
+          const iconSpan = iconContainer?.querySelector('.icon');
+          
+          if (currentView === 'vendors') {
+            viewToggleBtn.classList.add('active');
+            if (viewToggleText) viewToggleText.textContent = 'Vendors';
+            // Change icon to users - replace the SVG inside .icon span
+            if (iconSpan) {
+              iconSpan.innerHTML = `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M23 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg>`;
+            } else if (iconContainer) {
+              // Fallback: replace entire container if .icon not found
+              iconContainer.innerHTML = `<span class="icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M23 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg></span>`;
+            }
+          } else {
+            viewToggleBtn.classList.remove('active');
+            if (viewToggleText) viewToggleText.textContent = 'Categories';
+            // Change icon to grid - replace the SVG inside .icon span
+            if (iconSpan) {
+              iconSpan.innerHTML = `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"></rect><rect x="14" y="3" width="7" height="7"></rect><rect x="14" y="14" width="7" height="7"></rect><rect x="3" y="14" width="7" height="7"></rect></svg>`;
+            } else if (iconContainer) {
+              // Fallback: replace entire container if .icon not found
+              iconContainer.innerHTML = `<span class="icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"></rect><rect x="14" y="3" width="7" height="7"></rect><rect x="14" y="14" width="7" height="7"></rect><rect x="3" y="14" width="7" height="7"></rect></svg></span>`;
+            }
+          }
+        };
+        
+        updateToggleButton();
+        
+        // Toggle on click - prevent default and handle properly
+        viewToggleBtn.addEventListener('click', (e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          
+          const url = new URL(window.location.href);
+          const newView = currentView === 'vendors' ? 'categories' : 'vendors';
+          
+          if (newView === 'categories') {
+            url.searchParams.delete('view');
+          } else {
+            url.searchParams.set('view', 'vendors');
+          }
+          
+          // Use full page navigation to ensure clean state
+          window.location.href = url.toString();
+        });
+      }
+      
+      // Render appropriate view - delay to ensure DOM is ready
+      if (currentView === 'vendors') {
+        // Wait for DOM to be fully ready
+        requestAnimationFrame(() => {
+          setTimeout(() => {
+            renderVendorView();
+            // Re-apply search after rendering
+            setTimeout(() => {
+              applySearch();
+              // Update toggle button again after render
+              if (viewToggleBtn) {
+                const iconContainer = document.getElementById('view-toggle-icon');
+                const iconSpan = iconContainer?.querySelector('.icon');
+                viewToggleBtn.classList.add('active');
+                if (viewToggleText) viewToggleText.textContent = 'Vendors';
+                if (iconSpan) {
+                  iconSpan.innerHTML = `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M23 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg>`;
+                }
+              }
+            }, 50);
+          }, 50);
+        });
+      }
+
+      // Show filters if there are active filters
+      if (filterToggleBtn && filtersRow) {
+        if (currentCategoryFilter || currentVendorFilter || currentCertFilter) {
+          filtersRow.classList.add('show');
+          filterToggleBtn.classList.add('active');
+        }
+      }
+
+      // Set search input value
+      if (searchInput) {
+        searchInput.value = currentSearchQuery;
+      }
+
+      // Make category headers show pointer cursor
+      document.querySelectorAll('.category-header').forEach(header => {
+        header.style.cursor = 'pointer';
+      });
+
+      // Apply search after initialization
+      applySearch();
+    }
+
+    // Global search functionality
+    function applySearch() {
+      const searchInput = document.getElementById('search-input');
+      const certificationsList = document.getElementById('certifications-list');
+      const resultsCount = document.getElementById('results-count');
+      const noResults = document.getElementById('no-results');
+      const certCards = Array.from(document.querySelectorAll('.cert-card'));
+      const categorySections = document.querySelectorAll('.category-section');
+      
+      if (!searchInput) return;
+      
+      const current = getCurrentFilters();
+      const searchTerm = searchInput.value.toLowerCase().trim();
+      let visibleCount = 0;
+      
+      // Handle both category view (cert-cards) and vendor view (category cards)
+      const allCards = Array.from(document.querySelectorAll('.cert-card'));
+      const vendorCards = Array.from(document.querySelectorAll('.vendor-view-section .cert-card'));
+      
+      (currentView === 'vendors' ? vendorCards : certCards).forEach(card => {
+        const searchable = card.dataset.searchable || '';
+        const cardTitle = card.querySelector('.cert-card-title')?.textContent?.toLowerCase() || '';
+        const searchableText = (searchable + ' ' + cardTitle).toLowerCase();
+        const matchesSearch = !searchTerm || searchableText.includes(searchTerm);
+        
+        // Category filter
+        const matchesCategory = !current.category || card.dataset.category === current.category;
+        
+        // Vendor filter
+        const matchesVendor = !current.vendor || card.dataset.vendor === current.vendor;
+        
+        // Certification filter (only for category view)
+        const matchesCert = currentView === 'vendors' || !current.certification || card.dataset.certification === current.certification;
+        
+        const visible = matchesSearch && matchesCategory && matchesVendor && matchesCert;
+        
+        if (visible) {
+          card.style.display = '';
+          visibleCount++;
+        } else {
+          card.style.display = 'none';
+        }
+      });
+
+      // Show/hide sections based on visible cards
+      const allSections = currentView === 'vendors' 
+        ? Array.from(document.querySelectorAll('.vendor-view-section'))
+        : categorySections;
+      
+      allSections.forEach(section => {
+        const cardsInSection = Array.from(section.querySelectorAll('.cert-card'));
+        const visibleCardsInSection = cardsInSection.filter(card => card.style.display !== 'none');
+        
+        if (visibleCardsInSection.length === 0) {
+          section.style.display = 'none';
+        } else {
+          section.style.display = '';
+        }
+      });
+
+      // Update results count
+      if (resultsCount) {
+        if (currentView === 'vendors') {
+          const vendorSections = Array.from(document.querySelectorAll('.vendor-view-section'));
+          const visibleVendors = vendorSections.filter(section => section.style.display !== 'none').length;
+          resultsCount.textContent = `${visibleVendors} vendor${visibleVendors !== 1 ? 's' : ''}`;
+        } else {
+          resultsCount.textContent = `${visibleCount} certification${visibleCount === 1 ? '' : 's'}`;
+        }
+      }
+
+      // Show/hide empty state
+      if (noResults) {
+        if (visibleCount === 0) {
+          noResults.style.display = 'block';
+          if (certificationsList) certificationsList.style.display = 'none';
+        } else {
+          noResults.style.display = 'none';
+          if (certificationsList) certificationsList.style.display = '';
+        }
+      }
+    }
+
+    // Document-level event delegation for ALL interactive elements
+    // This ensures everything works even after cache restore
+    document.addEventListener('click', function(e) {
+      // Filter toggle button
+      if (e.target.closest('#filter-toggle-btn')) {
+        const btn = e.target.closest('#filter-toggle-btn');
+        const filtersRow = document.getElementById('filters-row');
+        if (btn && filtersRow) {
+          e.preventDefault();
+          e.stopPropagation();
+          filtersRow.classList.toggle('show');
+          btn.classList.toggle('active');
+        }
+        return;
+      }
+
+      // Filter chips
+      const filterChip = e.target.closest('.filter-chip[data-filter-type]');
+      if (filterChip) {
+        e.preventDefault();
+        e.stopPropagation();
+        const filterType = filterChip.dataset.filterType;
+        const filterValue = filterChip.dataset.filterValue || '';
+        
+        // Update selected filter
+        selectedFilters[filterType] = filterValue;
+        
+        // Update visual state for this filter type
+        document.querySelectorAll(`.filter-chip[data-filter-type="${filterType}"]`).forEach(c => {
+          c.classList.remove('active', 'selected');
+        });
+        
+        // If "All" is selected, remove the filter
+        if (filterValue === '') {
+          selectedFilters[filterType] = '';
+          filterChip.classList.add('active');
+        } else {
+          filterChip.classList.add('selected');
+        }
+        
+        // Update apply button state
+        updateApplyButton();
+        return;
+      }
+
+      // Apply filters button
+      if (e.target.closest('#apply-filters-btn')) {
+        const btn = e.target.closest('#apply-filters-btn');
+        if (btn && !btn.disabled) {
+          e.preventDefault();
+          const current = getCurrentFilters();
+          const params = new URLSearchParams();
+          
+          if (selectedFilters.category) params.set('category', selectedFilters.category);
+          if (selectedFilters.vendor) params.set('vendor', selectedFilters.vendor);
+          if (selectedFilters.certification) params.set('certification', selectedFilters.certification);
+          if (current.search) params.set('search', current.search);
+          
+          const newUrl = params.toString() ? `/certifications?${params.toString()}` : '/certifications';
+          window.location.href = newUrl;
+        }
+        return;
+      }
+
+      // Remove filter buttons
+      if (e.target.closest('[data-remove-category]')) {
+        e.preventDefault();
+        const params = new URLSearchParams(window.location.search);
+        params.delete('category');
+        const newUrl = params.toString() ? `/certifications?${params.toString()}` : '/certifications';
+        window.location.href = newUrl;
+        return;
+      }
+
+      if (e.target.closest('[data-remove-vendor]')) {
+        e.preventDefault();
+        const params = new URLSearchParams(window.location.search);
+        params.delete('vendor');
+        const newUrl = params.toString() ? `/certifications?${params.toString()}` : '/certifications';
+        window.location.href = newUrl;
+        return;
+      }
+
+      if (e.target.closest('[data-remove-cert]')) {
+        e.preventDefault();
+        const params = new URLSearchParams(window.location.search);
+        params.delete('certification');
+        const newUrl = params.toString() ? `/certifications?${params.toString()}` : '/certifications';
+        window.location.href = newUrl;
+        return;
+      }
+
+      // Vendor view - handle vendor header clicks to show categories
+      const vendorViewHeader = e.target.closest('.category-header[data-vendor-name]');
+      if (vendorViewHeader) {
+        // Check if we're in vendor view by checking if the header is in a vendor-view-section
+        const vendorSection = vendorViewHeader.closest('.vendor-view-section');
+        if (vendorSection) {
+          e.preventDefault();
+          e.stopPropagation();
+          
+          const vendor = vendorViewHeader.dataset.vendorName;
+          const categoriesDataStr = vendorSection.dataset.categories;
+          
+          if (vendor && categoriesDataStr) {
+            try {
+              const categoriesData = JSON.parse(categoriesDataStr);
+              if (typeof openVendorCategoriesDrawer === 'function') {
+                openVendorCategoriesDrawer(vendor, categoriesData);
+              } else {
+                if (import.meta.env.DEV) {
+                  console.error('openVendorCategoriesDrawer function not found');
+                }
+              }
+            } catch (err) {
+              if (import.meta.env.DEV) {
+                console.error('Error parsing categories data:', err);
+              }
+            }
+          }
+          return;
+        }
+      }
+
+      // Vendor toggle (vendor-section)
+      const vendorHeader = e.target.closest('[data-toggle-vendor]');
+      if (vendorHeader) {
+        e.stopPropagation();
+        const section = vendorHeader.closest('.vendor-section');
+        if (section) {
+          const isCurrentlyCollapsed = section.classList.contains('collapsed');
+          
+          if (isCurrentlyCollapsed) {
+            // Expanding - ensure content is rendered before animation
+            section.classList.remove('collapsed');
+            // Force multiple reflows to ensure content is fully rendered
+            requestAnimationFrame(() => {
+              void section.offsetHeight;
+              const content = section.querySelector('.vendor-content');
+              if (content) {
+                void content.offsetHeight;
+                // Force rendering of all child elements
+                const children = content.querySelectorAll('*');
+                children.forEach(child => void child.offsetHeight);
+                // Additional frame to ensure everything is painted
+                requestAnimationFrame(() => {
+                  void content.offsetHeight;
+                  requestAnimationFrame(() => {
+                    void content.offsetHeight;
+                  });
+                });
+              }
+            });
+          } else {
+            // Collapsing - can animate immediately
+            section.classList.add('collapsed');
+          }
+        }
+        return;
+      }
+
+      // Vendor-item toggle (in drawer)
+      const vendorItemHeader = e.target.closest('.vendor-header');
+      if (vendorItemHeader && vendorItemHeader.closest('.vendor-item')) {
+        e.stopPropagation();
+        const vendorItem = vendorItemHeader.closest('.vendor-item');
+        if (vendorItem) {
+          const isCurrentlyExpanded = vendorItem.classList.contains('expanded');
+          
+          if (!isCurrentlyExpanded) {
+            // Expanding - use robust rendering approach
+            ensureContentRendered(vendorItem, '.vendor-content', 'expanded');
+          } else {
+            // Collapsing - can animate immediately
+            vendorItem.classList.remove('expanded');
+          }
+        }
+        return;
+      }
+
+      // Cert-item toggle (in drawer)
+      const certItemHeader = e.target.closest('.cert-item-header');
+      if (certItemHeader) {
+        e.stopPropagation();
+        const certItem = certItemHeader.closest('.cert-item');
+        if (certItem) {
+          const isCurrentlyExpanded = certItem.classList.contains('expanded');
+          
+          if (!isCurrentlyExpanded) {
+            // Expanding - use robust rendering approach
+            ensureContentRendered(certItem, '.cert-item-content', 'expanded');
+          } else {
+            // Collapsing - can animate immediately
+            certItem.classList.remove('expanded');
+          }
+        }
+        return;
+      }
+    });
+
+    // Search input handler - use event delegation
+    let searchTimeout;
+    document.addEventListener('input', function(e) {
+      if (e.target.id === 'search-input') {
+        clearTimeout(searchTimeout);
+        searchTimeout = setTimeout(() => {
+          const params = new URLSearchParams(window.location.search);
+          if (e.target.value.trim()) {
+            params.set('search', e.target.value.trim());
+          } else {
+            params.delete('search');
+          }
+          const newUrl = params.toString() ? `/certifications?${params.toString()}` : '/certifications';
+          window.history.pushState({}, '', newUrl);
+          
+          // Apply search immediately
+          applySearch();
+        }, 300);
+      }
+    });
+
+    // Search input Enter key handler
+    document.addEventListener('keydown', function(e) {
+      if (e.target.id === 'search-input' && e.key === 'Enter') {
+        e.preventDefault();
+        clearTimeout(searchTimeout);
+        const params = new URLSearchParams(window.location.search);
+        if (e.target.value.trim()) {
+          params.set('search', e.target.value.trim());
+        } else {
+          params.delete('search');
+        }
+        const newUrl = params.toString() ? `/certifications?${params.toString()}` : '/certifications';
+        window.history.pushState({}, '', newUrl);
+        
+        // Apply search immediately
+        applySearch();
+      }
+    });
+
+    // Category drawer functionality
+    function openCategoryDrawer(categoryName, categoryIconName, vendorsData) {
+      const overlay = document.getElementById('category-drawer-overlay');
+      const drawer = document.getElementById('category-drawer');
+      const titleText = document.getElementById('category-drawer-title-text');
+      const icon = document.getElementById('category-drawer-icon');
+      const content = document.getElementById('category-drawer-content');
+      
+      if (!overlay || !drawer || !titleText || !content) return;
+      
+      // Set title and icon
+      titleText.textContent = categoryName.replace(/-/g, ' ');
+      
+      // Set icon - clone from category card
+      const categorySection = document.querySelector(`[data-category="${categoryName}"]`);
+      if (categorySection) {
+        const originalIcon = categorySection.querySelector('.category-icon-wrapper .icon');
+        if (originalIcon) {
+          icon.innerHTML = originalIcon.innerHTML;
+        } else {
+          const iconWrapper = categorySection.querySelector('.category-icon-wrapper');
+          if (iconWrapper) {
+            const svg = iconWrapper.querySelector('svg');
+            if (svg) {
+              icon.innerHTML = svg.outerHTML;
+            }
+          }
+        }
+      }
+      
+      // Store current view state
+      content.dataset.currentView = 'certifications';
+      content.dataset.categoryName = categoryName;
+      content.dataset.vendorsData = JSON.stringify(vendorsData);
+      
+      // Build icon grid layout for certifications
+      buildCertificationsView(content, vendorsData, categoryName);
+      
+      // Force multiple reflows to ensure content is fully rendered before animation
+      // This prevents content from not showing when scrolling fast
+      void content.offsetHeight;
+      void drawer.offsetHeight;
+      
+      // Use multiple requestAnimationFrame calls to ensure DOM is fully updated
+      requestAnimationFrame(() => {
+        // Force reflow of all child elements
+        const allChildren = content.querySelectorAll('*');
+        allChildren.forEach(child => void child.offsetHeight);
+        void content.offsetHeight;
+        void drawer.offsetHeight;
+        
+        // Another frame to ensure everything is painted
+        requestAnimationFrame(() => {
+          void content.offsetHeight;
+          void drawer.offsetHeight;
+          
+          // Now trigger the animation
+          requestAnimationFrame(() => {
+            overlay.classList.add('active');
+            document.body.style.overflow = 'hidden';
+            
+            // One more frame after animation starts to ensure content is visible
+            requestAnimationFrame(() => {
+              void content.offsetHeight;
+              // Force rendering of all visible elements
+              const visibleElements = content.querySelectorAll('.drawer-nav-link, .drawer-nav-section');
+              visibleElements.forEach(el => void el.offsetHeight);
+            });
+          });
+        });
+      });
+    }
+
+    function closeCategoryDrawer() {
+      const overlay = document.getElementById('category-drawer-overlay');
+      if (overlay) {
+        overlay.classList.remove('active');
+        document.body.style.overflow = '';
+      }
+    }
+    
+    // Open vendor categories drawer - make it globally accessible
+    function openVendorCategoriesDrawer(vendorName, categoriesData) {
+      const overlay = document.getElementById('category-drawer-overlay');
+      const drawer = document.getElementById('category-drawer');
+      const titleText = document.getElementById('category-drawer-title-text');
+      const icon = document.getElementById('category-drawer-icon');
+      const content = document.getElementById('category-drawer-content');
+      
+      if (!overlay || !drawer || !titleText || !content) return;
+      
+      // Set title
+      titleText.textContent = vendorName.replace(/-/g, ' ');
+      
+      // Set vendor icon
+      icon.innerHTML = `<svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M23 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg>`;
+      
+      // Store state
+      content.dataset.currentView = 'categories';
+      content.dataset.vendorName = vendorName;
+      content.dataset.categoriesData = JSON.stringify(categoriesData);
+      
+      // Build categories view with search
+      buildVendorCategoriesView(content, vendorName, categoriesData);
+      
+      // Force multiple reflows to ensure content is fully rendered before animation
+      // This prevents content from not showing when scrolling fast (same pattern as openCategoryDrawer)
+      void content.offsetHeight;
+      void drawer.offsetHeight;
+      
+      // Use multiple requestAnimationFrame calls to ensure DOM is fully updated
+      requestAnimationFrame(() => {
+        // Force reflow of all child elements
+        const allChildren = content.querySelectorAll('*');
+        allChildren.forEach(child => void child.offsetHeight);
+        void content.offsetHeight;
+        void drawer.offsetHeight;
+        
+        // Another frame to ensure everything is painted
+        requestAnimationFrame(() => {
+          void content.offsetHeight;
+          void drawer.offsetHeight;
+          
+          // Now trigger the animation
+          requestAnimationFrame(() => {
+            overlay.classList.add('active');
+            document.body.style.overflow = 'hidden';
+            
+            // One more frame after animation starts to ensure content is visible
+            requestAnimationFrame(() => {
+              void content.offsetHeight;
+              // Force rendering of all visible elements
+              const visibleElements = content.querySelectorAll('.drawer-nav-link, .drawer-nav-section');
+              visibleElements.forEach(el => void el.offsetHeight);
+            });
+          });
+        });
+      });
+    }
+    
+    // Make openVendorCategoriesDrawer globally accessible for event handlers
+    if (typeof window !== 'undefined') {
+      window.openVendorCategoriesDrawer = openVendorCategoriesDrawer;
+    }
+    
+    // Build vendor categories view with search
+    function buildVendorCategoriesView(content, vendorName, categoriesData) {
+      const container = document.createElement('div');
+      
+      // Add search bar for categories
+      const searchContainer = document.createElement('div');
+      searchContainer.style.cssText = 'margin-bottom: 2rem; position: relative;';
+      
+      const searchInput = document.createElement('input');
+      searchInput.type = 'text';
+      searchInput.placeholder = 'Search categories...';
+      searchInput.className = 'search-input';
+      searchInput.style.cssText = 'width: 100%; padding: 0.75rem 1rem; background: rgba(255, 255, 255, 0.02); border: 1px solid var(--border-color, #222); border-radius: 8px; color: var(--fg-color, #e6e0d6); font-family: Poppins, sans-serif;';
+      
+      searchInput.addEventListener('input', (e) => {
+        const searchTerm = e.target.value.toLowerCase();
+        container.querySelectorAll('.drawer-nav-section').forEach((section) => {
+          const categoryName = section.querySelector('.drawer-nav-section-header')?.textContent?.toLowerCase() || '';
+          const matches = !searchTerm || categoryName.includes(searchTerm);
+          section.style.display = matches ? '' : 'none';
+        });
+      });
+      
+      searchContainer.appendChild(searchInput);
+      container.appendChild(searchContainer);
+      
+      // Build category sections
+      categoriesData.forEach(([category, certs]) => {
+        if (!certs || certs.length === 0) return;
+        
+        const section = document.createElement('div');
+        section.className = 'drawer-nav-section';
+        
+        const sectionHeader = document.createElement('div');
+        sectionHeader.className = 'drawer-nav-section-header';
+        
+        const headerIcon = document.createElement('span');
+        headerIcon.className = 'drawer-nav-section-icon';
+        headerIcon.innerHTML = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path></svg>`;
+        
+        const headerText = document.createTextNode(category.replace(/-/g, ' '));
+        sectionHeader.appendChild(headerIcon);
+        sectionHeader.appendChild(headerText);
+        
+        const navList = document.createElement('div');
+        navList.className = 'drawer-nav-list';
+        
+        certs.forEach(([certName, files]) => {
+          if (certName === 'general') return;
+          
+          const navLink = document.createElement('button');
+          navLink.className = 'drawer-nav-link';
+          navLink.type = 'button';
+          navLink.dataset.certName = certName;
+          navLink.dataset.files = JSON.stringify(files);
+          navLink.dataset.vendor = vendorName;
+          navLink.dataset.category = category;
+          
+          const text = document.createElement('span');
+          text.className = 'drawer-nav-link-text';
+          text.textContent = formatCertificationName(generateTitleFromFilename(certName));
+          
+          navLink.appendChild(text);
+          
+          if (files && files.length > 0) {
+            const badge = document.createElement('span');
+            badge.className = 'drawer-nav-link-badge';
+            badge.textContent = files.length > 99 ? '99+' : files.length.toString();
+            navLink.appendChild(badge);
+          }
+          
+          navList.appendChild(navLink);
+        });
+        
+        section.appendChild(sectionHeader);
+        section.appendChild(navList);
+        container.appendChild(section);
+      });
+      
+      content.innerHTML = '';
+      content.appendChild(container);
+    }
+
+    function buildCertificationsView(content, vendorsData, categoryName) {
+      if (!vendorsData || vendorsData.length === 0) {
+        const emptyMsg = document.createElement('div');
+        emptyMsg.style.textAlign = 'center';
+        emptyMsg.style.padding = '3rem 2rem';
+        emptyMsg.style.color = 'var(--text-muted, #999)';
+        emptyMsg.innerHTML = '<p style="margin: 0; font-size: 1rem;">No certifications found in this category.</p>';
+        content.innerHTML = '';
+        content.appendChild(emptyMsg);
+        return;
+      }
+      
+      const container = document.createElement('div');
+      
+      vendorsData.forEach(([vendor, certs]) => {
+        if (certs && certs.length > 0) {
+          // Create section
+          const section = document.createElement('div');
+          section.className = 'drawer-nav-section';
+          
+          // Section header with icon
+          const sectionHeader = document.createElement('div');
+          sectionHeader.className = 'drawer-nav-section-header';
+          
+          const headerIcon = document.createElement('span');
+          headerIcon.className = 'drawer-nav-section-icon';
+          headerIcon.innerHTML = `
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path>
+            </svg>
+          `;
+          
+          const headerText = document.createTextNode(vendor.replace(/-/g, ' '));
+          sectionHeader.appendChild(headerIcon);
+          sectionHeader.appendChild(headerText);
+          
+          // Navigation list - use div instead of ul for better grid control
+          const navList = document.createElement('div');
+          navList.className = 'drawer-nav-list';
+          navList.style.display = 'grid';
+          navList.style.gridTemplateColumns = 'repeat(auto-fill, minmax(140px, 1fr))';
+          navList.style.gap = '1rem';
+          navList.style.rowGap = '1rem';
+          navList.style.columnGap = '1rem';
+          navList.style.width = '100%';
+          
+          // Set columns based on screen size
+          if (window.innerWidth >= 768) {
+            navList.style.gridTemplateColumns = 'repeat(3, 1fr)';
+          } else if (window.innerWidth >= 480) {
+            navList.style.gridTemplateColumns = 'repeat(2, 1fr)';
+          }
+          
+          certs
+            .filter(([certName]) => certName !== 'general') // Filter out "general" placeholder certifications
+            .forEach(([certName, files]) => {
+            // Check if this certification only has a README file
+            // Only show "coming soon" for actual certifications (not "general" placeholder)
+            const isReadmeOnly = certName !== 'general' && 
+              files && files.length === 1 && 
+              files[0].href && files[0].href.toLowerCase().includes('readme');
+            
+            if (isReadmeOnly) {
+              // Create a "coming soon" indicator instead of a clickable link
+              const comingSoonCard = document.createElement('div');
+              comingSoonCard.className = 'drawer-nav-link';
+              comingSoonCard.style.setProperty('background', 'rgba(255, 255, 255, 0.02)', 'important');
+              comingSoonCard.style.setProperty('background-color', 'rgba(255, 255, 255, 0.02)', 'important');
+              comingSoonCard.style.setProperty('border', '2px dashed rgba(212, 183, 140, 0.3)', 'important');
+              comingSoonCard.style.setProperty('color', '#e6e0d6', 'important');
+              comingSoonCard.style.setProperty('aspect-ratio', '1 / 1', 'important');
+              comingSoonCard.style.setProperty('min-height', '120px', 'important');
+              comingSoonCard.style.setProperty('width', '100%', 'important');
+              comingSoonCard.style.setProperty('cursor', 'default', 'important');
+              comingSoonCard.style.setProperty('display', 'flex', 'important');
+              comingSoonCard.style.setProperty('flex-direction', 'column', 'important');
+              comingSoonCard.style.setProperty('align-items', 'center', 'important');
+              comingSoonCard.style.setProperty('justify-content', 'center', 'important');
+              comingSoonCard.style.setProperty('gap', '0.75rem', 'important');
+              comingSoonCard.style.setProperty('padding', '1rem', 'important');
+              
+              // Icon
+              const iconWrapper = document.createElement('div');
+              iconWrapper.style.cssText = 'display: flex; align-items: center; justify-content: center; width: 48px; height: 48px; background: rgba(212, 183, 140, 0.15); border-radius: 50%; color: #d4b78c;';
+              iconWrapper.innerHTML = `<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"></path><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"></path></svg>`;
+              
+              // Text
+              const text = document.createElement('span');
+              text.className = 'drawer-nav-link-text';
+              text.textContent = formatCertificationName(generateTitleFromFilename(certName));
+              text.style.setProperty('font-size', '1rem', 'important');
+              text.style.setProperty('text-align', 'center', 'important');
+              text.style.setProperty('margin-bottom', '0.5rem', 'important');
+              
+              // Coming soon label
+              const comingSoonLabel = document.createElement('span');
+              comingSoonLabel.textContent = 'Coming Soon';
+              comingSoonLabel.style.cssText = 'font-size: 0.75rem; font-weight: 600; color: #d4b78c; text-transform: uppercase; letter-spacing: 0.05em; font-family: "Poppins", sans-serif;';
+              
+              comingSoonCard.appendChild(text);
+              comingSoonCard.appendChild(iconWrapper);
+              comingSoonCard.appendChild(comingSoonLabel);
+              
+              navList.appendChild(comingSoonCard);
+            } else {
+            const navLink = document.createElement('button');
+            navLink.className = 'drawer-nav-link';
+            navLink.type = 'button';
+            navLink.style.setProperty('background', 'rgba(255, 255, 255, 0.02)', 'important');
+            navLink.style.setProperty('background-color', 'rgba(255, 255, 255, 0.02)', 'important');
+            navLink.style.setProperty('border', '1px solid var(--border-color, #222)', 'important');
+            navLink.style.setProperty('color', '#e6e0d6', 'important');
+            navLink.style.setProperty('aspect-ratio', '1 / 1', 'important');
+            navLink.style.setProperty('min-height', '120px', 'important');
+            navLink.style.setProperty('width', '100%', 'important');
+            navLink.dataset.certName = certName;
+            navLink.dataset.files = JSON.stringify(files);
+            navLink.dataset.vendor = vendor;
+            
+            // Text - capitalize (no icon), centered
+            const text = document.createElement('span');
+            text.className = 'drawer-nav-link-text';
+            text.textContent = generateTitleFromFilename(certName);
+            text.style.setProperty('font-size', '1.1rem', 'important');
+            text.style.setProperty('display', 'flex', 'important');
+            text.style.setProperty('align-items', 'center', 'important');
+            text.style.setProperty('justify-content', 'center', 'important');
+            text.style.setProperty('text-align', 'center', 'important');
+            text.style.setProperty('width', '100%', 'important');
+            text.style.setProperty('height', '100%', 'important');
+            text.style.setProperty('flex', '1', 'important');
+            
+            navLink.appendChild(text);
+            
+            // Badge
+            if (files && files.length > 0) {
+              const badge = document.createElement('span');
+              badge.className = 'drawer-nav-link-badge';
+              badge.textContent = files.length > 99 ? '99+' : files.length.toString();
+              badge.style.position = 'absolute';
+              badge.style.top = '0.25rem';
+              badge.style.right = '0.25rem';
+              navLink.appendChild(badge);
+            }
+            
+            navList.appendChild(navLink);
+            }
+          });
+          
+          section.appendChild(sectionHeader);
+          section.appendChild(navList);
+          container.appendChild(section);
+        }
+      });
+      
+      content.innerHTML = '';
+      content.appendChild(container);
+      
+      // Force multiple reflows to ensure content is fully rendered
+      // Critical for fast scrolling scenarios
+      void content.offsetHeight;
+      requestAnimationFrame(() => {
+        void content.offsetHeight;
+        // Force rendering of all child elements
+        const allChildren = container.querySelectorAll('*');
+        allChildren.forEach(child => void child.offsetHeight);
+        void container.offsetHeight;
+        requestAnimationFrame(() => {
+          void content.offsetHeight;
+        });
+      });
+    }
+
+    function buildFilesView(content, certName, files, categoryName, vendor) {
+      // Normalize files - convert raw file objects to normalized format with title and href
+      // Files might come in two formats:
+      // 1. Already normalized: { title: "...", href: "..." }
+      // 2. Raw file objects: { id: "...", data: { title: "..." } }
+      const normalizedFiles = files.map(file => {
+        // If already normalized (has href), return as-is
+        if (file.href) {
+          return file;
+        }
+        // Otherwise, normalize from raw file object
+        const fileId = file.id || '';
+        const fileName = fileId.split('/').pop()?.replace('.md', '') || fileId;
+        return {
+          title: file.data?.title || generateTitleFromFilename(fileName) || 'Untitled',
+          href: `/certifications/${fileId.replace(/\.md$/, '')}`
+        };
+      });
+      
+      // Update drawer header title
+      const titleText = document.getElementById('category-drawer-title-text');
+      if (titleText) {
+        const certTitle = formatCertificationName(generateTitleFromFilename(certName));
+        titleText.textContent = certTitle;
+      }
+      
+      // Store current state for back navigation
+      // Preserve the previous view before we change it to 'files'
+      const previousView = content.dataset.currentView || 'certifications';
+      content.dataset.previousView = previousView; // Store for back navigation
+      content.dataset.currentCertName = certName;
+      content.dataset.currentVendor = vendor || '';
+      
+      // Create back button - check if we're coming from vendor categories or certifications view
+      const isFromVendorView = previousView === 'categories';
+      
+      const backButton = document.createElement('button');
+      backButton.className = 'drawer-back-button';
+      backButton.type = 'button';
+      backButton.innerHTML = `
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <polyline points="15 18 9 12 15 6"></polyline>
+        </svg>
+        <span>Back to ${isFromVendorView ? 'Vendors' : 'Certifications'}</span>
+      `;
+      backButton.addEventListener('click', () => {
+        // Get the previous view from dataset (stored when building files view)
+        const prevView = content.dataset.previousView || 'certifications';
+        const fromVendorView = prevView === 'categories';
+        
+        if (fromVendorView) {
+          // Go back to vendor categories view
+          const vendorName = content.dataset.vendorName;
+          const categoriesDataStr = content.dataset.categoriesData;
+          if (vendorName && categoriesDataStr) {
+            try {
+              const categoriesData = JSON.parse(categoriesDataStr);
+              buildVendorCategoriesView(content, vendorName, categoriesData);
+              content.dataset.currentView = 'categories';
+              // Restore original vendor title
+              if (titleText) {
+                titleText.textContent = vendorName.replace(/-/g, ' ');
+              }
+              // Force reflow to ensure content is rendered
+              requestAnimationFrame(() => {
+                void content.offsetHeight;
+              });
+            } catch (err) {
+              if (import.meta.env.DEV) {
+                console.error('Error:', err);
+              }
+            }
+          }
+        } else {
+          // Go back to certifications view
+          const vendorsDataStr = content.dataset.vendorsData;
+          if (vendorsDataStr) {
+            try {
+              const vendorsData = JSON.parse(vendorsDataStr);
+              buildCertificationsView(content, vendorsData, categoryName);
+              content.dataset.currentView = 'certifications';
+              // Restore original category title
+              if (titleText) {
+                titleText.textContent = categoryName.replace(/-/g, ' ');
+              }
+              // Force reflow to ensure content is rendered
+              requestAnimationFrame(() => {
+                void content.offsetHeight;
+              });
+            } catch (err) {
+              if (import.meta.env.DEV) {
+                console.error('Error:', err);
+              }
+            }
+          }
+        }
+      });
+      
+      // Create file list using best practice navigation
+      const fileList = document.createElement('div');
+      fileList.className = 'drawer-nav-list';
+      fileList.style.display = 'grid';
+      fileList.style.gridTemplateColumns = 'repeat(auto-fill, minmax(140px, 1fr))';
+      fileList.style.gap = '1rem';
+      fileList.style.rowGap = '1rem';
+      fileList.style.columnGap = '1rem';
+      fileList.style.width = '100%';
+      
+      // Set columns based on screen size
+      if (window.innerWidth >= 768) {
+        fileList.style.gridTemplateColumns = 'repeat(3, 1fr)';
+      } else if (window.innerWidth >= 480) {
+        fileList.style.gridTemplateColumns = 'repeat(2, 1fr)';
+      }
+      
+      if (!normalizedFiles || normalizedFiles.length === 0) {
+        const emptyMsg = document.createElement('div');
+        emptyMsg.style.textAlign = 'center';
+        emptyMsg.style.padding = '3rem 2rem';
+        emptyMsg.style.color = 'var(--text-muted, #999)';
+        emptyMsg.innerHTML = '<p style="margin: 0; font-size: 1rem;">No files found for this certification.</p>';
+        content.innerHTML = '';
+        content.appendChild(backButton);
+        content.appendChild(emptyMsg);
+        content.dataset.currentView = 'files';
+        // Force reflow to ensure content is rendered
+        requestAnimationFrame(() => {
+          void content.offsetHeight;
+        });
+        return;
+      }
+      
+      // Sort files by title for consistent ordering
+      const sortedFiles = [...normalizedFiles].sort((a, b) => {
+        const titleA = (a.title || '').toLowerCase();
+        const titleB = (b.title || '').toLowerCase();
+        return titleA.localeCompare(titleB);
+      });
+      
+      sortedFiles.forEach((file, index) => {
+        const fileLink = document.createElement('a');
+        fileLink.className = 'drawer-nav-link';
+        fileLink.style.setProperty('background', 'rgba(255, 255, 255, 0.02)', 'important');
+        fileLink.style.setProperty('background-color', 'rgba(255, 255, 255, 0.02)', 'important');
+        fileLink.style.setProperty('border', '1px solid var(--border-color, #222)', 'important');
+        fileLink.style.setProperty('color', '#e6e0d6', 'important');
+        fileLink.style.setProperty('aspect-ratio', '1 / 1', 'important');
+        fileLink.style.setProperty('min-height', '120px', 'important');
+        fileLink.style.setProperty('width', '100%', 'important');
+        fileLink.href = file.href;
+        
+        // Text - centered in middle of card, no icon
+        const text = document.createElement('span');
+        text.className = 'drawer-nav-link-text';
+        text.textContent = file.title || 'Untitled';
+        text.style.setProperty('font-size', '1.1rem', 'important');
+        text.style.setProperty('display', 'flex', 'important');
+        text.style.setProperty('align-items', 'center', 'important');
+        text.style.setProperty('justify-content', 'center', 'important');
+        text.style.setProperty('text-align', 'center', 'important');
+        text.style.setProperty('width', '100%', 'important');
+        text.style.setProperty('height', '100%', 'important');
+        text.style.setProperty('flex', '1', 'important');
+        
+        // Number badge
+        const badge = document.createElement('span');
+        badge.className = 'drawer-nav-link-badge';
+        badge.textContent = (index + 1).toString();
+        
+        fileLink.appendChild(text);
+        fileLink.appendChild(badge);
+        fileList.appendChild(fileLink);
+      });
+      
+      content.innerHTML = '';
+      content.appendChild(backButton);
+      content.appendChild(fileList);
+      content.dataset.currentView = 'files';
+      
+      // Force multiple reflows to ensure content is fully rendered
+      // Critical for fast scrolling scenarios
+      void content.offsetHeight;
+      requestAnimationFrame(() => {
+        void content.offsetHeight;
+        // Force rendering of all child elements
+        const allChildren = fileList.querySelectorAll('*');
+        allChildren.forEach(child => void child.offsetHeight);
+        void fileList.offsetHeight;
+        requestAnimationFrame(() => {
+          void content.offsetHeight;
+        });
+      });
+    }
+
+    // Document-level event delegation for category clicks - ALWAYS ACTIVE
+    (function() {
+      function handleCategoryClick(e) {
+        // Handle vendor view category card clicks (same pattern as category headers)
+        // Check for vendor category cards first (more specific selector)
+        const vendorCategoryCard = e.target.closest('.vendor-view-section .cert-card[data-vendor-name]');
+        if (vendorCategoryCard && !e.target.closest('.category-drawer')) {
+          // Don't trigger if clicking on the file-link
+          if (e.target.closest('.file-link')) {
+            return;
+          }
+          
+          e.preventDefault();
+          e.stopPropagation();
+          
+          const vendor = vendorCategoryCard.dataset.vendorName;
+          const categoriesDataStr = vendorCategoryCard.dataset.categoriesData;
+          
+          // Debug in dev mode
+          if (import.meta.env.DEV) {
+            console.log('Vendor card clicked:', {
+              vendor,
+              hasData: !!categoriesDataStr,
+              card: vendorCategoryCard,
+              functionExists: typeof window.openVendorCategoriesDrawer === 'function'
+            });
+          }
+          
+          if (vendor && categoriesDataStr) {
+            try {
+              const categoriesData = JSON.parse(categoriesDataStr);
+              // Try window scope first, then local scope
+              const openDrawer = window.openVendorCategoriesDrawer || openVendorCategoriesDrawer;
+              if (typeof openDrawer === 'function') {
+                openDrawer(vendor, categoriesData);
+              } else {
+                console.error('openVendorCategoriesDrawer function not found');
+              }
+            } catch (err) {
+              if (import.meta.env.DEV) {
+                console.error('Error parsing categories data:', err);
+              }
+            }
+          } else {
+            if (import.meta.env.DEV) {
+              console.warn('Missing vendor or categoriesData:', { vendor, hasCategoriesData: !!categoriesDataStr });
+            }
+          }
+          return;
+        }
+        
+        // Handle vendor header clicks in vendor view - must come before category header handler
+        const vendorViewHeader = e.target.closest('.category-header[data-vendor-name]');
+        if (vendorViewHeader && !e.target.closest('.category-drawer')) {
+          const vendorSection = vendorViewHeader.closest('.vendor-view-section');
+          if (vendorSection) {
+            e.preventDefault();
+            e.stopPropagation();
+            
+            const vendor = vendorViewHeader.dataset.vendorName;
+            const categoriesDataStr = vendorSection.dataset.categories;
+            
+            if (vendor && categoriesDataStr) {
+              try {
+                const categoriesData = JSON.parse(categoriesDataStr);
+                const openDrawer = window.openVendorCategoriesDrawer || openVendorCategoriesDrawer;
+                if (typeof openDrawer === 'function') {
+                  openDrawer(vendor, categoriesData);
+                } else {
+                  console.error('openVendorCategoriesDrawer function not found');
+                }
+              } catch (err) {
+                if (import.meta.env.DEV) {
+                  console.error('Error parsing categories data:', err);
+                }
+              }
+            }
+            return;
+          }
+        }
+        
+        // Handle category header clicks - open drawer
+        const categoryHeader = e.target.closest('.category-header');
+        if (categoryHeader && !e.target.closest('.category-drawer')) {
+          // Skip vendor headers - they should be handled by the vendor header handler
+          if (categoryHeader.dataset.vendorName || categoryHeader.closest('.vendor-view-section')) {
+            return;
+          }
+          
+          e.stopPropagation();
+          
+          const section = categoryHeader.closest('.category-section');
+          if (section) {
+            // Get drawer elements directly
+            let overlay = document.getElementById('category-drawer-overlay');
+            
+            if (!overlay) {
+              setTimeout(() => {
+                overlay = document.getElementById('category-drawer-overlay');
+                if (overlay && typeof openCategoryDrawer === 'function') {
+                  const categoryName = categoryHeader.dataset.categoryName;
+                  const categoryIconName = categoryHeader.dataset.categoryIcon;
+                  const vendorsDataStr = section.dataset.vendors;
+                  if (categoryName && vendorsDataStr) {
+                    try {
+                      const vendorsData = JSON.parse(vendorsDataStr);
+                      openCategoryDrawer(categoryName, categoryIconName, vendorsData);
+                    } catch (err) {
+                      if (import.meta.env.DEV) {
+                        console.error('Error:', err);
+                      }
+                    }
+                  }
+                }
+              }, 100);
+              return;
+            }
+            
+            // Get data from attributes
+            const categoryName = categoryHeader.dataset.categoryName;
+            const categoryIconName = categoryHeader.dataset.categoryIcon;
+            const vendorsDataStr = section.dataset.vendors;
+            
+            if (!categoryName || !vendorsDataStr) {
+              return;
+            }
+            
+            try {
+              const vendorsData = JSON.parse(vendorsDataStr);
+              if (typeof openCategoryDrawer === 'function') {
+                openCategoryDrawer(categoryName, categoryIconName, vendorsData);
+              }
+            } catch (err) {
+              if (import.meta.env.DEV) {
+                console.error('Error parsing vendors data:', err);
+              }
+            }
+            return;
+          }
+        }
+      }
+      
+      // Attach the listener immediately
+      document.addEventListener('click', handleCategoryClick, true);
+    })();
+
+    // Handle certification link clicks in drawer - use event delegation
+    (function() {
+      function handleCertificationClick(e) {
+        const certLink = e.target.closest('.drawer-nav-link[data-cert-name]');
+        if (certLink) {
+          e.preventDefault();
+          e.stopPropagation();
+          
+          const content = document.getElementById('category-drawer-content');
+          if (!content) return;
+          
+          const certName = certLink.dataset.certName;
+          const filesStr = certLink.dataset.files;
+          const vendor = certLink.dataset.vendor || content.dataset.vendorName || '';
+          const categoryName = content.dataset.categoryName || certLink.dataset.category || '';
+          
+          if (certName && filesStr && categoryName) {
+            try {
+              const files = JSON.parse(filesStr);
+              buildFilesView(content, certName, files, categoryName, vendor);
+              // Force reflow to ensure content is rendered after building
+              requestAnimationFrame(() => {
+                void content.offsetHeight;
+              });
+            } catch (err) {
+              if (import.meta.env.DEV) {
+                console.error('Error parsing files:', err);
+              }
+            }
+          }
+          return;
+        }
+      }
+      
+      // Attach the listener immediately
+      document.addEventListener('click', handleCertificationClick, true);
+    })();
+
+    // Close drawer handlers - use document-level delegation
+    (function() {
+      function handleDrawerClose(e) {
+        // Close button click
+        if (e.target.closest('#category-drawer-close')) {
+          e.preventDefault();
+          e.stopPropagation();
+          closeCategoryDrawer();
+          return;
+        }
+        
+        // Overlay click (outside drawer)
+        const overlay = document.getElementById('category-drawer-overlay');
+        if (overlay && e.target === overlay) {
+          closeCategoryDrawer();
+          return;
+        }
+      }
+      
+      // Attach the listener immediately
+      document.addEventListener('click', handleDrawerClose, true);
+    })();
+
+    // Close drawer on ESC key
+    document.addEventListener('keydown', function(e) {
+      if (e.key === 'Escape') {
+        const overlay = document.getElementById('category-drawer-overlay');
+        if (overlay && overlay.classList.contains('active')) {
+          closeCategoryDrawer();
+        }
+      }
+    });
+
+    // Helper function to generate title from filename (for JavaScript)
+    function generateTitleFromFilename(filename) {
+      return filename
+        .replace(/^\d+-/, '')
+        .replace(/-/g, ' ')
+        .replace(/\b\w/g, l => l.toUpperCase());
+    }
+    
+    // Format certification name - uppercase except for Pentest+ and Security+
+    function formatCertificationName(certName) {
+      const normalized = certName.trim();
+      const lowerNormalized = normalized.toLowerCase();
+      
+      // Check if it's Pentest+ or Security+ (case-insensitive)
+      if (lowerNormalized === 'pentest+' || lowerNormalized === 'security+') {
+        // Return with proper capitalization: Pentest+ or Security+
+        return normalized.charAt(0).toUpperCase() + normalized.slice(1).toLowerCase();
+      }
+      
+      // All other certifications should be uppercase
+      return normalized.toUpperCase();
+    }
+
+    // Initialize on page load
+    function initPage() {
+      if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', initializeCertificationsPage);
+      } else {
+        initializeCertificationsPage();
+      }
+    }
+    
+    initPage();
+
+    // Re-initialize when page is shown (handles back/forward navigation)
+    window.addEventListener('pageshow', function(event) {
+      setTimeout(() => {
+        initializeCertificationsPage();
+        document.querySelectorAll('.category-header').forEach(header => {
+          header.style.cursor = 'pointer';
+        });
+      }, 50);
+    });
+
+    // Re-initialize on Astro page transitions
+    document.addEventListener('astro:page-load', function() {
+      setTimeout(() => {
+        initializeCertificationsPage();
+        applySearch();
+      }, 50);
+    });
+    
+    // Also handle after-swap for view transitions
+    document.addEventListener('astro:after-swap', function() {
+      setTimeout(() => {
+        initializeCertificationsPage();
+      }, 50);
+    });
+
+    // Handle fast scrolling - ensure content is rendered when it comes into view
+    let scrollTimeout;
+    let lastScrollTime = 0;
+    window.addEventListener('scroll', function() {
+      const now = Date.now();
+      const timeSinceLastScroll = now - lastScrollTime;
+      lastScrollTime = now;
+      
+      // Only process if scrolling very fast (less than 16ms between scroll events)
+      // or if it's been a while since last scroll (user stopped scrolling)
+      if (timeSinceLastScroll < 16 || timeSinceLastScroll > 100) {
+        clearTimeout(scrollTimeout);
+        
+        scrollTimeout = setTimeout(() => {
+          // Force rendering of visible expanded content
+          requestAnimationFrame(() => {
+            // Check all expanded vendor-items and cert-items in viewport
+            const expandedVendorItems = document.querySelectorAll('.vendor-item.expanded .vendor-content');
+            const expandedCertItems = document.querySelectorAll('.cert-item.expanded .cert-item-content');
+            const drawerContent = document.getElementById('category-drawer-content');
+            
+            // Force reflow of visible expanded content
+            expandedVendorItems.forEach(content => {
+              const rect = content.getBoundingClientRect();
+              // Only process if element is in or near viewport
+              if (rect.top < window.innerHeight + 200 && rect.bottom > -200) {
+                void content.offsetHeight;
+                const children = content.querySelectorAll('*');
+                children.forEach(child => void child.offsetHeight);
+              }
+            });
+            
+            expandedCertItems.forEach(content => {
+              const rect = content.getBoundingClientRect();
+              if (rect.top < window.innerHeight + 200 && rect.bottom > -200) {
+                void content.offsetHeight;
+                const children = content.querySelectorAll('*');
+                children.forEach(child => void child.offsetHeight);
+              }
+            });
+            
+            // Also ensure drawer content is rendered if drawer is open
+            if (drawerContent && document.getElementById('category-drawer-overlay')?.classList.contains('active')) {
+              void drawerContent.offsetHeight;
+              const visibleElements = drawerContent.querySelectorAll('.drawer-nav-link, .drawer-nav-section');
+              visibleElements.forEach(el => {
+                const rect = el.getBoundingClientRect();
+                if (rect.top < window.innerHeight + 200 && rect.bottom > -200) {
+                  void el.offsetHeight;
+                }
+              });
+            }
+          });
+        }, 50);
+      }
+    }, { passive: true });
+  </script>
+</BaseLayout>

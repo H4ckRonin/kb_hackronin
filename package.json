@@ -1,0 +1,23 @@
+{
+  "name": "kb_hackronin",
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "astro dev",
+    "start": "astro dev",
+    "build": "astro build",
+    "preview": "astro preview",
+    "astro": "astro"
+  },
+  "dependencies": {
+    "@astrojs/mdx": "^4.2.0",
+    "@astrojs/svelte": "^7.0.6",
+    "astro": "^5.5.2",
+    "lucide-astro": "^0.555.0",
+    "reading-time": "^1.5.0",
+    "rehype-external-links": "^3.0.0",
+    "remark-gfm": "^4.0.0",
+    "remark-smartypants": "^2.0.0",
+    "svelte": "^5.45.6"
+  }
+}

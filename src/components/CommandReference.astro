@@ -1,0 +1,252 @@
+---
+// Command Reference Component
+// Extracts and displays command examples with copy-to-clipboard functionality
+
+interface Props {
+  content: string;
+}
+
+const { content } = Astro.props;
+
+// Extract code blocks that look like commands
+function extractCommands(content: string): Array<{ code: string; language: string }> {
+  const commands: Array<{ code: string; language: string }> = [];
+  
+  // Match code blocks
+  const codeBlockRegex = /```(\w+)?\n([\s\S]*?)```/g;
+  let match;
+  
+  while ((match = codeBlockRegex.exec(content)) !== null) {
+    const language = match[1] || 'bash';
+    const code = match[2].trim();
+    
+    // Only include if it looks like a command (bash, shell, powershell, etc.)
+    if (['bash', 'sh', 'shell', 'powershell', 'ps1', 'cmd', 'python', 'ruby'].includes(language.toLowerCase())) {
+      commands.push({ code, language });
+    }
+  }
+  
+  return commands.slice(0, 20); // Limit to 20 commands
+}
+
+const commands = extractCommands(content);
+const hasCommands = commands.length > 0;
+---
+
+{hasCommands && (
+  <div class="command-reference">
+    <div class="command-reference-header">
+      <h3 class="command-reference-title">Quick Command Reference</h3>
+      <button class="command-reference-toggle" id="command-reference-toggle" aria-expanded="false">
+        <span>Show</span>
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <polyline points="6 9 12 15 18 9"></polyline>
+        </svg>
+      </button>
+    </div>
+    <div class="command-reference-content" id="command-reference-content" style="display: none;">
+      {commands.map((cmd, index) => (
+        <div class="command-item" data-command-index={index}>
+          <div class="command-header">
+            <span class="command-language">{cmd.language}</span>
+            <button class="command-copy-btn" data-command-index={index} title="Copy to clipboard">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+                <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+              </svg>
+              Copy
+            </button>
+          </div>
+          <pre class="command-code"><code>{cmd.code}</code></pre>
+        </div>
+      ))}
+    </div>
+  </div>
+)}
+
+<style>
+  .command-reference {
+    margin: 2rem 0;
+    padding: 1.5rem;
+    background: var(--card-bg, rgba(255, 255, 255, 0.02));
+    border: 1px solid var(--border-color, #222);
+    border-radius: 12px;
+    font-family: 'Poppins', sans-serif;
+  }
+
+  .command-reference-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 1rem;
+  }
+
+  .command-reference-title {
+    font-size: 1.1rem;
+    font-weight: 600;
+    margin: 0;
+    color: var(--accent-color, #d4b78c);
+  }
+
+  .command-reference-toggle {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.5rem 1rem;
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid var(--border-color, #222);
+    border-radius: 6px;
+    color: var(--fg-color, #e6e0d6);
+    font-size: 0.85rem;
+    font-family: 'Poppins', sans-serif;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+
+  .command-reference-toggle:hover {
+    background: rgba(212, 183, 140, 0.1);
+    border-color: var(--accent-color, #d4b78c);
+  }
+
+  .command-reference-toggle svg {
+    transition: transform 0.2s;
+  }
+
+  .command-reference-toggle[aria-expanded="true"] svg {
+    transform: rotate(180deg);
+  }
+
+  .command-reference-content {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+  }
+
+  .command-item {
+    background: rgba(255, 255, 255, 0.02);
+    border: 1px solid var(--border-color, #222);
+    border-radius: 8px;
+    overflow: hidden;
+  }
+
+  .command-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0.75rem 1rem;
+    background: rgba(255, 255, 255, 0.03);
+    border-bottom: 1px solid var(--border-color, #222);
+  }
+
+  .command-language {
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: var(--accent-color, #d4b78c);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+  }
+
+  .command-copy-btn {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.25rem 0.75rem;
+    background: rgba(212, 183, 140, 0.1);
+    border: 1px solid rgba(212, 183, 140, 0.3);
+    border-radius: 4px;
+    color: var(--accent-color, #d4b78c);
+    font-size: 0.75rem;
+    font-family: 'Poppins', sans-serif;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+
+  .command-copy-btn:hover {
+    background: rgba(212, 183, 140, 0.2);
+    border-color: var(--accent-color, #d4b78c);
+  }
+
+  .command-copy-btn.copied {
+    background: rgba(76, 175, 80, 0.2);
+    border-color: rgba(76, 175, 80, 0.4);
+    color: #4caf50;
+  }
+
+  .command-code {
+    margin: 0;
+    padding: 1rem;
+    background: #ccc7b2;
+    border: none;
+    border-radius: 0;
+    overflow-x: auto;
+    font-size: 0.875rem;
+    line-height: 1.6;
+  }
+
+  .command-code code {
+    background: transparent;
+    padding: 0;
+    color: #0b0b0b;
+    font-family: 'Courier New', monospace;
+  }
+</style>
+
+<script>
+  (function() {
+    const commandReference = document.querySelector('.command-reference');
+    if (!commandReference) return;
+
+    const toggle = document.getElementById('command-reference-toggle');
+    const content = document.getElementById('command-reference-content');
+
+    // Toggle visibility
+    if (toggle && content) {
+      toggle.addEventListener('click', () => {
+        const isExpanded = toggle.getAttribute('aria-expanded') === 'true';
+        toggle.setAttribute('aria-expanded', (!isExpanded).toString());
+        content.style.display = isExpanded ? 'none' : 'flex';
+        const span = toggle.querySelector('span');
+        if (span) {
+          span.textContent = isExpanded ? 'Show' : 'Hide';
+        }
+      });
+    }
+
+    // Copy to clipboard functionality
+    const copyButtons = document.querySelectorAll('.command-copy-btn');
+    copyButtons.forEach((btn) => {
+      btn.addEventListener('click', async () => {
+        const index = btn.getAttribute('data-command-index');
+        if (index === null) return;
+
+        const commandItem = document.querySelector(`[data-command-index="${index}"]`);
+        if (!commandItem) return;
+
+        const codeElement = commandItem.querySelector('.command-code code');
+        if (!codeElement) return;
+
+        const code = codeElement.textContent || '';
+
+        try {
+          await navigator.clipboard.writeText(code);
+          
+          // Show feedback
+          const originalText = btn.innerHTML;
+          btn.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"></polyline></svg> Copied!';
+          btn.classList.add('copied');
+
+          setTimeout(() => {
+            btn.innerHTML = originalText;
+            btn.classList.remove('copied');
+          }, 2000);
+        } catch (err) {
+          // Silently handle copy errors in production
+          if (import.meta.env.DEV) {
+            console.error('Failed to copy:', err);
+          }
+        }
+      });
+    });
+  })();
+</script>
+

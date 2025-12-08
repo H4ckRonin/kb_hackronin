@@ -1,0 +1,624 @@
+---
+import { getCollection, render } from 'astro:content';
+import readingTime from 'reading-time';
+import BaseLayout from '../../layouts/BaseLayout.astro';
+import TableOfContents from '../../components/TableOfContents.astro';
+import PostNavigation from '../../components/PostNavigation.astro';
+import FurtherReading from '../../components/FurtherReading.astro';
+import PhaseNavigation from '../../components/PhaseNavigation.astro';
+import RelatedMethodologies from '../../components/RelatedMethodologies.astro';
+import ChecklistTracker from '../../components/ChecklistTracker.astro';
+import CommandReference from '../../components/CommandReference.astro';
+import Giscus from '../../components/Giscus.astro';
+import { generateTitleFromFilename } from '../../utils/content';
+
+export async function getStaticPaths() {
+	const methodologies = await getCollection('methodologies');
+	
+	// Enrich and sort methodology items
+	// Filter out README-only items and "general" category (same as index page)
+	const enrichedItems = methodologies
+		.filter(item => {
+			const parts = item.id.split('/').filter(p => p);
+			const filename = parts[parts.length - 1]?.replace('.md', '') || '';
+			// Filter out README-only items
+			return filename.toLowerCase() !== 'readme';
+		})
+		.map(item => {
+			const parts = item.id.split('/').filter(p => p);
+			const categoryFromPath = parts.length > 0 ? parts[0] : '';
+			const category = item.data.category || categoryFromPath || 'general';
+			
+			return {
+				...item,
+				data: {
+					...item.data,
+					category: category.toLowerCase().replace(/\s+/g, '-'),
+					title: item.data.title || generateTitleFromFilename(parts[parts.length - 1]?.replace('.md', '') || item.id)
+				}
+			};
+		})
+		.filter(item => item.data.category !== 'general'); // Filter out "general" category
+	
+	// Sort by category, then title
+	enrichedItems.sort((a, b) => {
+		const aCat = a.data.category || '';
+		const bCat = b.data.category || '';
+		if (aCat !== bCat) return aCat.localeCompare(bCat);
+		const aTitle = a.data.title || a.id;
+		const bTitle = b.data.title || b.id;
+		return aTitle.localeCompare(bTitle);
+	});
+	
+	return enrichedItems.map((item, index) => {
+		const slugPath = item.id.replace(/\.md$/, '');
+		const previous = index > 0 ? enrichedItems[index - 1] : null;
+		const next = index < enrichedItems.length - 1 ? enrichedItems[index + 1] : null;
+		
+		// Get related items (same category, different files)
+		const related = enrichedItems.filter(i => 
+			i.id !== item.id && 
+			i.data.category === item.data.category
+		).slice(0, 3);
+		
+		return {
+			params: { slug: slugPath },
+			props: { 
+				item,
+				originalId: item.id,
+				previous: previous ? {
+					title: previous.data.title || generateTitleFromFilename(previous.id.split('/').pop()?.replace('.md', '') || ''),
+					href: `/methodologies/${previous.id.replace(/\.md$/, '')}`
+				} : null,
+				next: next ? {
+					title: next.data.title || generateTitleFromFilename(next.id.split('/').pop()?.replace('.md', '') || ''),
+					href: `/methodologies/${next.id.replace(/\.md$/, '')}`
+				} : null,
+				related: related.map(r => ({
+					title: r.data.title || generateTitleFromFilename(r.id.split('/').pop()?.replace('.md', '') || ''),
+					href: `/methodologies/${r.id.replace(/\.md$/, '')}`,
+					description: r.data.description || ''
+				}))
+			},
+		};
+	});
+}
+
+const { item, originalId, previous, next, related } = Astro.props;
+const { title, category, description } = item.data;
+const body = item.body || '';
+const readingTimeEstimate = readingTime(body);
+const wordCount = body.split(/\s+/).length;
+const permalink = `${Astro.site.href}methodologies/${originalId.replace(/\.md$/, '')}`;
+const { Content } = await render(item);
+
+// Generate page title - use enriched title or generate from filename
+const pageTitle = title || generateTitleFromFilename(originalId.split('/').pop()?.replace('.md', '') || originalId) || 'Untitled';
+
+// Build breadcrumbs
+const breadcrumbs = [];
+if (category) breadcrumbs.push({ name: category.replace(/-/g, ' '), href: `/methodologies?category=${category}` });
+---
+
+<BaseLayout title={pageTitle} description={description || ''} permalink={permalink} current="methodologies">
+  <script is:inline>
+    document.body.setAttribute('data-page', 'methodologies');
+  </script>
+  
+  <div class="methodology-page-wrapper">
+    {breadcrumbs.length > 0 && (
+      <nav class="breadcrumbs" aria-label="Breadcrumb">
+        <a href="/methodologies">Methodologies</a>
+        {breadcrumbs.map((crumb, i) => (
+          <>
+            <span class="breadcrumb-separator">/</span>
+            {i === breadcrumbs.length - 1 ? (
+              <span class="breadcrumb-current">{crumb.name}</span>
+            ) : (
+              <a href={crumb.href}>{crumb.name}</a>
+            )}
+          </>
+        ))}
+        <span class="breadcrumb-separator">/</span>
+        <span class="breadcrumb-current">{pageTitle}</span>
+      </nav>
+    )}
+    
+    <div class="methodology-meta">
+      <div class="methodology-stats">
+        <span>{readingTimeEstimate.text}</span>
+        <span>•</span>
+        <span>{wordCount} words</span>
+      </div>
+      {category && (
+        <div class="methodology-taxonomy">
+          <a href={`/methodologies?category=${category}`} class="category-tag">
+            {category.replace(/-/g, ' ')}
+          </a>
+        </div>
+      )}
+    </div>
+    
+    {body && (
+      <>
+        <PhaseNavigation content={body} />
+        <ChecklistTracker methodologyId={originalId.replace(/\.md$/, '')} content={body} />
+        <CommandReference content={body} />
+      </>
+    )}
+    
+    <div class="methodology-content-wrapper">
+      <article class="methodology-content">
+        <Content />
+      </article>
+      
+      <TableOfContents />
+    </div>
+    
+    <PostNavigation previous={previous} next={next} collectionType="methodologies" />
+    
+    <Giscus
+      repo={import.meta.env.PUBLIC_GISCUS_REPO || "h4ckronin/kb_hackronin"}
+      repoId={import.meta.env.PUBLIC_GISCUS_REPO_ID || ""}
+      category={import.meta.env.PUBLIC_GISCUS_CATEGORY || "General"}
+      categoryId={import.meta.env.PUBLIC_GISCUS_CATEGORY_ID || ""}
+      mapping="pathname"
+      theme="preferred_color_scheme"
+      lang="en"
+      reactionsEnabled={true}
+      emitMetadata={false}
+      inputPosition="bottom"
+      loading="lazy"
+    />
+    
+    <RelatedMethodologies currentMethodology={item} />
+    
+    {related.length > 0 && (
+      <FurtherReading relatedItems={related} collectionType="methodologies" />
+    )}
+  </div>
+</BaseLayout>
+
+<style>
+  .methodology-page-wrapper {
+    max-width: 1400px;
+    margin: 0 auto;
+    padding: 2rem;
+    padding-top: 1rem; /* Less top padding since breadcrumbs have their own */
+    position: relative;
+    z-index: 20;
+    width: 100%;
+    box-sizing: border-box;
+  }
+
+  @media (max-width: 768px) {
+    .methodology-page-wrapper {
+      padding-top: 0.5rem;
+      padding-left: 1rem;
+      padding-right: 1rem;
+    }
+  }
+
+  @media (max-width: 480px) {
+    .methodology-page-wrapper {
+      padding-left: 0.75rem;
+      padding-right: 0.75rem;
+    }
+  }
+
+  .methodology-content-wrapper {
+    display: grid;
+    grid-template-columns: 1fr 280px;
+    gap: 3rem;
+    align-items: start;
+  }
+
+  @media (max-width: 1200px) {
+    .methodology-content-wrapper {
+      grid-template-columns: 1fr;
+      gap: 2rem;
+    }
+  }
+
+  @media (max-width: 768px) {
+    .methodology-page-wrapper {
+      padding: 1rem;
+    }
+
+    .methodology-content-wrapper {
+      gap: 1.5rem;
+    }
+
+    .methodology-content {
+      max-width: 100%;
+      padding: 0;
+      /* Ensure text is readable on mobile */
+      word-wrap: break-word;
+      overflow-wrap: break-word;
+      word-break: break-word;
+      hyphens: auto;
+      -webkit-hyphens: auto;
+      -ms-hyphens: auto;
+    }
+
+    /* Force all text to wrap on mobile */
+    .methodology-content * {
+      max-width: 100%;
+      box-sizing: border-box;
+    }
+
+    .methodology-content p,
+    .methodology-content li,
+    .methodology-content td,
+    .methodology-content th {
+      word-wrap: break-word !important;
+      overflow-wrap: break-word !important;
+      word-break: break-word !important;
+    }
+
+    .methodology-content h1 {
+      font-size: 1.875rem;
+      line-height: 1.3;
+    }
+
+    .methodology-content h2 {
+      font-size: 1.5rem;
+      line-height: 1.4;
+    }
+
+    .methodology-content h3 {
+      font-size: 1.25rem;
+      line-height: 1.4;
+    }
+
+    .methodology-content p,
+    .methodology-content ul,
+    .methodology-content ol {
+      font-size: 0.95rem;
+      line-height: 1.7;
+    }
+
+    .methodology-content pre {
+      font-size: 0.875rem;
+      padding: 0.875rem;
+      overflow-x: auto;
+    }
+
+    .methodology-content img {
+      max-width: 100%;
+      height: auto;
+    }
+
+    .methodology-content table {
+      display: block;
+      overflow-x: auto;
+      width: 100%;
+    }
+  }
+
+  @media (max-width: 480px) {
+    .methodology-page-wrapper {
+      padding: 0.75rem;
+    }
+
+    .methodology-content h1 {
+      font-size: 1.625rem;
+    }
+
+    .methodology-content h2 {
+      font-size: 1.375rem;
+    }
+
+    .methodology-content h3 {
+      font-size: 1.125rem;
+    }
+
+    .methodology-content p,
+    .methodology-content ul,
+    .methodology-content ol {
+      font-size: 0.9rem;
+      line-height: 1.65;
+    }
+  }
+
+  .breadcrumbs {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    margin-bottom: 2rem;
+    margin-top: 0;
+    padding-top: 4.5rem; /* Space for fixed buttons at top */
+    font-family: 'Poppins', sans-serif;
+    font-size: 0.9rem;
+    flex-wrap: wrap;
+  }
+
+  @media (max-width: 768px) {
+    .breadcrumbs {
+      padding-top: 3.5rem; /* Less space on mobile */
+    }
+  }
+
+  @media (max-width: 480px) {
+    .breadcrumbs {
+      padding-top: 3rem; /* Even less on very small screens */
+    }
+  }
+
+  .breadcrumbs a {
+    color: var(--accent-color, #d4b78c);
+    text-decoration: none;
+    transition: opacity 0.2s;
+  }
+
+  .breadcrumbs a:hover {
+    opacity: 0.8;
+  }
+
+  .breadcrumb-separator {
+    color: var(--text-muted, #999);
+  }
+
+  .breadcrumb-current {
+    color: var(--fg-color, #e6e0d6);
+    font-weight: 600;
+  }
+
+  .methodology-meta {
+    margin-bottom: 2rem;
+    padding-bottom: 1.5rem;
+    border-bottom: 1px solid var(--border-color, #222);
+  }
+
+  .methodology-stats {
+    color: var(--text-muted, #ccc);
+    font-family: 'Poppins', sans-serif;
+    font-size: 0.85rem;
+    margin-bottom: 1rem;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+  }
+
+  .methodology-taxonomy {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+  }
+
+  .category-tag {
+    padding: 0.25rem 0.75rem;
+    border-radius: 4px;
+    text-decoration: none;
+    font-size: 0.85rem;
+    font-family: 'Poppins', sans-serif;
+    transition: all 0.2s ease;
+    text-transform: capitalize;
+    background: rgba(212, 183, 140, 0.2);
+    color: var(--accent-color, #d4b78c);
+    border: 1px solid var(--accent-color, #d4b78c);
+  }
+
+  .category-tag:hover {
+    background: var(--accent-color, #d4b78c);
+    color: var(--bg-color, #0b0b0b);
+  }
+
+  .methodology-content {
+    text-align: left;
+    line-height: 1.8;
+    /* Chirpy-style: Optimal reading width */
+    max-width: 65ch;
+    margin: 0 auto;
+    width: 100%;
+    box-sizing: border-box;
+    /* Ensure proper text wrapping */
+    word-wrap: break-word;
+    overflow-wrap: break-word;
+    hyphens: auto;
+    -webkit-hyphens: auto;
+    -ms-hyphens: auto;
+  }
+
+  /* Ensure content doesn't exceed container on desktop */
+  @media (min-width: 769px) {
+    .methodology-content {
+      max-width: min(65ch, 100%);
+    }
+  }
+
+  /* Force wrapping for all text elements */
+  .methodology-content p,
+  .methodology-content li,
+  .methodology-content td,
+  .methodology-content th,
+  .methodology-content span:not(pre span):not(code span),
+  .methodology-content div:not(pre):not(.code-block-wrapper) {
+    word-wrap: break-word;
+    overflow-wrap: break-word;
+    word-break: break-word;
+    hyphens: auto;
+    -webkit-hyphens: auto;
+    -ms-hyphens: auto;
+  }
+
+  /* Headings should also wrap */
+  .methodology-content h1,
+  .methodology-content h2,
+  .methodology-content h3,
+  .methodology-content h4,
+  .methodology-content h5,
+  .methodology-content h6 {
+    word-wrap: break-word;
+    overflow-wrap: break-word;
+    word-break: break-word;
+    hyphens: auto;
+    -webkit-hyphens: auto;
+    -ms-hyphens: auto;
+  }
+
+  .methodology-content h1,
+  .methodology-content h2,
+  .methodology-content h3 {
+    margin-top: 2rem;
+    margin-bottom: 1rem;
+    font-family: 'Poppins', sans-serif;
+  }
+
+  .methodology-content h1 {
+    font-size: 2.5rem;
+    border-bottom: 2px solid var(--border-color, #222);
+    padding-bottom: 0.5rem;
+  }
+
+  .methodology-content h2 {
+    font-size: 2rem;
+    color: var(--accent-color, #d4b78c);
+  }
+
+  .methodology-content h3 {
+    font-size: 1.5rem;
+  }
+
+  .methodology-content p,
+  .methodology-content ul,
+  .methodology-content ol {
+    font-size: 1rem;
+    line-height: 1.75;
+    margin: 1.25em 0;
+  }
+
+  .methodology-content code {
+    background: rgba(212, 183, 140, 0.1);
+    padding: 0.2em 0.4em;
+    border-radius: 3px;
+    font-size: 0.95em;
+    color: var(--fg-color, #e6e0d6);
+  }
+  
+  .empty-content-message {
+    padding: 2rem;
+    text-align: center;
+    color: var(--text-muted, #999);
+    font-style: italic;
+  }
+
+  .methodology-content pre {
+    background: #ccc7b2;
+    border: 1px solid rgba(204, 199, 178, 0.3);
+    border-radius: 8px;
+    padding: 1rem;
+    overflow-x: visible;
+    overflow-wrap: break-word;
+    word-wrap: break-word;
+    white-space: pre-wrap;
+    position: relative;
+    margin: 1.2em 0;
+  }
+
+  .methodology-content pre code {
+    background: transparent;
+    padding: 0;
+    color: #0b0b0b;
+    font-size: 0.95em;
+    line-height: 1.6;
+    white-space: pre-wrap;
+    word-wrap: break-word;
+    overflow-wrap: break-word;
+    user-select: text;
+    -webkit-user-select: text;
+    -moz-user-select: text;
+    -ms-user-select: text;
+  }
+
+  @media (max-width: 1200px) {
+    .methodology-content-wrapper {
+      grid-template-columns: 1fr;
+      gap: 2rem;
+    }
+  }
+
+  @media (max-width: 768px) {
+    .methodology-page-wrapper {
+      padding: 1rem;
+    }
+
+    .methodology-content h1 {
+      font-size: 2rem;
+    }
+
+    .methodology-content-wrapper {
+      gap: 1.5rem;
+    }
+  }
+</style>
+
+<script>
+  // Detect container width and ensure proper text wrapping
+  (function() {
+    function ensureTextWrapping() {
+      const content = document.querySelector('.methodology-content');
+      if (!content) return;
+
+      // Force wrapping on all text elements
+      const textElements = content.querySelectorAll('p, li, td, th, span, div, h1, h2, h3, h4, h5, h6');
+      textElements.forEach(el => {
+        // Skip code blocks and pre elements
+        if (el.closest('pre') || el.closest('code')) return;
+        
+        const computedStyle = window.getComputedStyle(el);
+        const width = el.offsetWidth;
+        const parentWidth = el.parentElement?.offsetWidth || 0;
+        
+        // If element is wider than parent, force wrapping
+        if (width > parentWidth && parentWidth > 0) {
+          el.style.maxWidth = '100%';
+          el.style.wordWrap = 'break-word';
+          el.style.overflowWrap = 'break-word';
+          el.style.wordBreak = 'break-word';
+        }
+      });
+
+      // Ensure content container doesn't exceed viewport
+      const container = document.querySelector('.methodology-page-wrapper');
+      if (container) {
+        const containerWidth = container.offsetWidth;
+        const viewportWidth = window.innerWidth;
+        
+        if (containerWidth > viewportWidth) {
+          container.style.maxWidth = '100%';
+          container.style.overflowX = 'hidden';
+        }
+      }
+    }
+
+    // Run on load
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', ensureTextWrapping);
+    } else {
+      ensureTextWrapping();
+    }
+
+    // Run on resize
+    let resizeTimeout: ReturnType<typeof setTimeout>;
+    window.addEventListener('resize', () => {
+      clearTimeout(resizeTimeout);
+      resizeTimeout = setTimeout(ensureTextWrapping, 100);
+    });
+
+    // Run on Astro page transitions
+    document.addEventListener('astro:page-load', ensureTextWrapping);
+
+    // Use ResizeObserver for more accurate detection
+    if (typeof ResizeObserver !== 'undefined') {
+      const content = document.querySelector('.methodology-content');
+      if (content) {
+        const observer = new ResizeObserver(() => {
+          ensureTextWrapping();
+        });
+        observer.observe(content);
+      }
+    }
+  })();
+</script>
+

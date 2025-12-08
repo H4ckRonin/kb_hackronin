@@ -1,0 +1,284 @@
+---
+import BaseLayout from '../layouts/BaseLayout.astro';
+
+const title = 'Support me';
+const description = 'Support my work with a coffee.';
+const permalink = `${Astro.site.href}support`;
+---
+
+<BaseLayout title={title} description={description} permalink={permalink} current="support">
+  <div class="game-page" data-page-type="support">
+    <div class="page-header">
+      <h1 class="page-title">Support me</h1>
+      <p class="page-subtitle">Support My Work</p>
+    </div>
+    <div class="page-content">
+      <div class="coffee-container">
+        <p class="coffee-intro">
+          If you enjoy my content and find it valuable, consider buying me a coffee! 
+          Your support helps me continue creating quality content and maintaining this blog.
+        </p>
+
+        <div class="coffee-platforms">
+          <div class="coffee-platform">
+            <div class="platform-header">
+              <h2>Ko-Fi</h2>
+              <p class="platform-description">
+                Support me with a one-time donation or become a monthly supporter on Ko-Fi.
+              </p>
+            </div>
+            <a 
+              href="https://ko-fi.com/h4ckronin" 
+              target="_blank" 
+              rel="noopener noreferrer"
+              class="coffee-button kofi-button"
+            >
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+                <path d="M23.881 8.58c0-2.08-1.674-3.754-3.755-3.754H3.874C1.792 4.826.118 6.5.118 8.58v4.917c0 2.08 1.674 3.754 3.755 3.754h16.252c2.08 0 3.754-1.673 3.754-3.754V8.58zm-2.266 4.917c0 .864-.732 1.564-1.636 1.564H3.874c-.904 0-1.636-.7-1.636-1.564V8.58c0-.863.732-1.564 1.636-1.564h16.105c.904 0 1.636.7 1.636 1.564v4.917zM5.874 6.68c.904 0 1.636.7 1.636 1.564 0 .863-.732 1.564-1.636 1.564-.904 0-1.636-.7-1.636-1.564 0-.863.732-1.564 1.636-1.564zm16.105 0c.904 0 1.636.7 1.636 1.564 0 .863-.732 1.564-1.636 1.564-.904 0-1.636-.7-1.636-1.564 0-.863.732-1.564 1.636-1.564z"/>
+              </svg>
+              <span>Support on Ko-Fi</span>
+            </a>
+          </div>
+
+          <div class="coffee-platform">
+            <div class="platform-header">
+              <h2>Buy Me a Coffee</h2>
+              <p class="platform-description">
+                Show your appreciation with a one-time coffee or become a member for exclusive content.
+              </p>
+            </div>
+            <a 
+              href="https://buymeacoffee.com/h4ckronin" 
+              target="_blank" 
+              rel="noopener noreferrer"
+              class="coffee-button bmc-button"
+            >
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+                <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
+              </svg>
+              <span>Buy Me a Coffee</span>
+            </a>
+          </div>
+        </div>
+
+        <div class="coffee-footer">
+          <p>
+            Thank you for your support! Every contribution, no matter how small, makes a difference. 
+            <span class="heart">❤️</span>
+          </p>
+        </div>
+      </div>
+    </div>
+  </div>
+</BaseLayout>
+
+<style>
+  .game-page {
+    width: 100%;
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 2rem;
+    animation: pageFadeIn 0.6s ease;
+    position: relative;
+    z-index: 20;
+  }
+
+  @keyframes pageFadeIn {
+    from {
+      opacity: 0;
+      transform: translateY(20px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  .page-header {
+    text-align: center;
+    margin-bottom: 3rem;
+    padding-bottom: 2rem;
+    border-bottom: 2px solid rgba(212, 183, 140, 0.3);
+    position: relative;
+  }
+
+  .page-header::after {
+    content: '';
+    position: absolute;
+    bottom: -2px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 100px;
+    height: 2px;
+    background: var(--accent-color, #d4b78c);
+    box-shadow: 0 0 10px rgba(212, 183, 140, 0.5);
+  }
+
+  .page-title {
+    font-size: 2.5rem;
+    font-weight: 600;
+    margin: 0 0 0.5rem;
+    color: var(--fg-color, #e6e0d6);
+    text-shadow: 0 0 10px rgba(212, 183, 140, 0.3);
+    font-family: 'Poppins', sans-serif;
+  }
+
+  .page-subtitle {
+    font-size: 1rem;
+    color: var(--accent-color, #d4b78c);
+    margin: 0;
+    opacity: 0.8;
+    font-family: 'Poppins', sans-serif;
+  }
+
+  .page-content {
+    animation: contentFadeIn 0.8s ease 0.2s both;
+  }
+
+  @keyframes contentFadeIn {
+    from {
+      opacity: 0;
+    }
+    to {
+      opacity: 1;
+    }
+  }
+
+  .coffee-intro {
+    text-align: center;
+    color: var(--text-secondary, #ccc);
+    margin: 2rem 0;
+    font-size: 1.1rem;
+    line-height: 1.6;
+    max-width: 600px;
+    margin-left: auto;
+    margin-right: auto;
+  }
+
+  .coffee-platforms {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+    gap: 2rem;
+    margin: 3rem 0;
+  }
+
+  .coffee-platform {
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 8px;
+    padding: 2rem;
+    display: flex;
+    flex-direction: column;
+    transition: transform 0.2s ease, border-color 0.2s ease;
+  }
+
+  .coffee-platform:hover {
+    transform: translateY(-2px);
+    border-color: var(--accent-color, #d4b78c);
+  }
+
+  .platform-header {
+    margin-bottom: 1.5rem;
+  }
+
+  .platform-header h2 {
+    font-family: 'Poppins', sans-serif;
+    font-size: 1.5rem;
+    color: var(--accent-color, #d4b78c);
+    margin-top: 0;
+    margin-bottom: 0.5rem;
+  }
+
+  .platform-description {
+    color: var(--text-secondary, #ccc);
+    margin: 0;
+    line-height: 1.5;
+  }
+
+  .coffee-button {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.75rem;
+    padding: 1rem 2rem;
+    background: var(--accent-color, #d4b78c);
+    color: #1a1a1a;
+    text-decoration: none;
+    border-radius: 6px;
+    font-weight: 600;
+    font-size: 1rem;
+    transition: all 0.2s ease;
+    margin-top: auto;
+    border: 2px solid transparent;
+  }
+
+  .coffee-button:hover {
+    background: transparent;
+    color: var(--accent-color, #d4b78c);
+    border-color: var(--accent-color, #d4b78c);
+    transform: translateY(-2px);
+  }
+
+  .coffee-button svg {
+    flex-shrink: 0;
+  }
+
+  .kofi-button {
+    background: #ff5e5b;
+    color: white;
+  }
+
+  .kofi-button:hover {
+    background: transparent;
+    color: #ff5e5b;
+    border-color: #ff5e5b;
+  }
+
+  .bmc-button {
+    background: #ffdd00;
+    color: #1a1a1a;
+  }
+
+  .bmc-button:hover {
+    background: transparent;
+    color: #ffdd00;
+    border-color: #ffdd00;
+  }
+
+  .coffee-footer {
+    text-align: center;
+    margin-top: 3rem;
+    padding-top: 2rem;
+    border-top: 1px solid var(--border-color, #222);
+    color: var(--text-secondary, #ccc);
+  }
+
+  .coffee-footer .heart {
+    color: #ff5e5b;
+    font-size: 1.2rem;
+  }
+
+  @media (max-width: 768px) {
+    .game-page {
+      padding: 1rem;
+    }
+
+    .page-title {
+      font-size: 2rem;
+    }
+
+    .page-header {
+      margin-bottom: 2rem;
+      padding-bottom: 1.5rem;
+    }
+
+    .coffee-platforms {
+      grid-template-columns: 1fr;
+    }
+
+    .coffee-intro {
+      font-size: 1rem;
+      padding: 0 1rem;
+    }
+  }
+</style>

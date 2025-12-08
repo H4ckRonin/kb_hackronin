@@ -1,0 +1,243 @@
+---
+import BaseLayout from '../../layouts/BaseLayout.astro';
+import { getCollection, render } from 'astro:content';
+
+const title = 'Unified Kill Chain - Knowledge Base';
+const description = 'Comprehensive attack framework covering all phases from reconnaissance to objectives';
+const permalink = `${Astro.site.href}unified-kill-chain`;
+
+let allPhases = await getCollection('unifiedKillChain');
+
+// Sort by phase number if available, otherwise by title
+allPhases = allPhases.sort((a, b) => {
+  if (a.data.phase && b.data.phase) {
+    return a.data.phase.localeCompare(b.data.phase);
+  }
+  const aTitle = a.data.title || a.id;
+  const bTitle = b.data.title || b.id;
+  return aTitle.localeCompare(bTitle);
+});
+
+// Render all kill chain content
+const renderedPhases = await Promise.all(
+  allPhases.map(async (item) => {
+    const { Content } = await render(item);
+    return {
+      ...item,
+      Content,
+    };
+  })
+);
+---
+
+<BaseLayout title={title} description={description} permalink={permalink} current="killchain">
+  <style>
+    .killchain-container {
+      max-width: 1400px;
+      margin: 0 auto;
+      padding: 2rem;
+      position: relative;
+      z-index: 20;
+    }
+
+    .page-header {
+      text-align: center;
+      margin-bottom: 4rem;
+      padding-bottom: 2rem;
+      border-bottom: 1px solid var(--border-color);
+    }
+
+    .page-title {
+      font-size: 3rem;
+      font-weight: 700;
+      margin: 0 0 1rem;
+      font-family: 'Poppins', sans-serif;
+    }
+
+    .page-description {
+      font-size: 1.1rem;
+      color: var(--text-muted);
+      max-width: 800px;
+      margin: 0 auto;
+    }
+
+    .killchain-content {
+      display: flex;
+      flex-direction: column;
+      gap: 4rem;
+    }
+
+    .phase-item {
+      background: var(--card-bg);
+      border: 1px solid var(--border-color);
+      border-radius: 12px;
+      padding: 2.5rem;
+      transition: all 0.3s ease;
+    }
+
+    .phase-item:hover {
+      border-color: var(--accent-color);
+      box-shadow: 0 4px 20px rgba(212, 183, 140, 0.1);
+    }
+
+    .phase-item-header {
+      margin-bottom: 2rem;
+      padding-bottom: 1.5rem;
+      border-bottom: 1px solid var(--border-color);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 1rem;
+    }
+
+    .phase-item-title {
+      font-size: 2rem;
+      font-weight: 600;
+      margin: 0;
+      font-family: 'Poppins', sans-serif;
+      color: var(--accent-color);
+    }
+
+    .phase-badge {
+      display: inline-block;
+      padding: 0.5rem 1rem;
+      background: rgba(212, 183, 140, 0.1);
+      border: 1px solid rgba(212, 183, 140, 0.3);
+      border-radius: 6px;
+      font-size: 0.9rem;
+      font-weight: 600;
+      color: var(--accent-color);
+      font-family: 'Poppins', sans-serif;
+    }
+
+    .phase-item-description {
+      color: var(--text-muted);
+      font-size: 1rem;
+      line-height: 1.6;
+      margin: 0.5rem 0 0;
+    }
+
+    .phase-item-content {
+      line-height: 1.8;
+    }
+
+    .phase-item-content h1,
+    .phase-item-content h2,
+    .phase-item-content h3 {
+      margin-top: 2rem;
+      margin-bottom: 1rem;
+      font-family: 'Poppins', sans-serif;
+    }
+
+    .phase-item-content h2 {
+      font-size: 1.75rem;
+      color: var(--accent-color);
+    }
+
+    .phase-item-content h3 {
+      font-size: 1.5rem;
+    }
+
+    .phase-item-content code {
+      background: rgba(212, 183, 140, 0.1);
+      padding: 0.2em 0.4em;
+      border-radius: 3px;
+      font-size: 0.95em;
+    }
+
+    .phase-item-content pre {
+      background: #ccc7b2;
+      border: 1px solid rgba(204, 199, 178, 0.3);
+      border-radius: 8px;
+      padding: 1rem;
+      overflow-x: visible;
+      overflow-wrap: break-word;
+      word-wrap: break-word;
+      white-space: pre-wrap;
+      position: relative;
+      margin: 1.2em 0;
+    }
+
+    .phase-item-content pre code {
+      background: transparent;
+      padding: 0;
+      color: #0b0b0b;
+      font-size: 0.95em;
+      line-height: 1.6;
+      white-space: pre-wrap;
+      word-wrap: break-word;
+      overflow-wrap: break-word;
+      user-select: text;
+      -webkit-user-select: text;
+      -moz-user-select: text;
+      -ms-user-select: text;
+    }
+
+    .empty-state {
+      text-align: center;
+      padding: 4rem 2rem;
+      color: var(--text-muted);
+    }
+
+    @media (max-width: 768px) {
+      .killchain-container {
+        padding: 1rem;
+      }
+
+      .page-title {
+        font-size: 2rem;
+      }
+
+      .phase-item {
+        padding: 1.5rem;
+      }
+
+      .phase-item-title {
+        font-size: 1.5rem;
+      }
+
+      .phase-item-header {
+        flex-direction: column;
+        align-items: flex-start;
+      }
+    }
+  </style>
+
+  <div class="killchain-container">
+    <div class="page-header">
+      <h1 class="page-title">Unified Kill Chain</h1>
+      <p class="page-description">
+        Comprehensive attack framework covering all phases from reconnaissance to objectives, mapped to MITRE ATT&CK.
+      </p>
+    </div>
+
+    {renderedPhases.length > 0 ? (
+      <div class="killchain-content">
+        {renderedPhases.map((item) => (
+          <article class="phase-item" id={item.id.replace(/\.md$/, '').replace(/\//g, '-')}>
+            <div class="phase-item-header">
+              <div>
+                <h2 class="phase-item-title">{item.data.title || item.id}</h2>
+                {item.data.description && (
+                  <p class="phase-item-description">{item.data.description}</p>
+                )}
+              </div>
+              {item.data.phase && (
+                <span class="phase-badge">Phase: {item.data.phase}</span>
+              )}
+            </div>
+            <div class="phase-item-content">
+              <item.Content />
+            </div>
+          </article>
+        ))}
+      </div>
+    ) : (
+      <div class="empty-state">
+        <h2>No kill chain content found</h2>
+        <p>Kill chain content will appear here once markdown files are added.</p>
+      </div>
+    )}
+  </div>
+</BaseLayout>

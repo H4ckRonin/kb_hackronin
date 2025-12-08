@@ -1,0 +1,127 @@
+---
+// Component to auto-link tool mentions in methodology content
+// This component processes content and links tool names to /tools section
+
+interface Props {
+  content: string;
+  tools?: Array<{ id: string; title: string }>;
+}
+
+const { content, tools = [] } = Astro.props;
+
+// Common tool names that should be linked
+const commonTools = [
+  'nmap', 'metasploit', 'burp', 'zap', 'sqlmap', 'hashcat', 'john', 'mimikatz',
+  'bloodhound', 'impacket', 'crackmapexec', 'responder', 'rubeus', 'powershell',
+  'python', 'bash', 'gobuster', 'dirb', 'feroxbuster', 'nikto', 'nuclei',
+  'linpeas', 'winpeas', 'sharphound', 'evil-winrm', 'psexec', 'smbclient',
+  'enum4linux', 'ldapsearch', 'theharvester', 'shodan', 'maltego', 'recon-ng',
+  'masscan', 'rustscan', 'nessus', 'openvas', 'postman', 'insomnia',
+  'wappalyzer', 'whatweb', 'wfuzz', 'ffuf', 'xsser', 'xss-hunter'
+];
+
+// Process content to link tools
+function linkTools(text: string, availableTools: Array<{ id: string; title: string }>): string {
+  let processed = text;
+  
+  // Create a map of tool names to their IDs
+  const toolMap = new Map<string, string>();
+  availableTools.forEach(tool => {
+    const toolName = tool.title.toLowerCase();
+    toolMap.set(toolName, tool.id);
+    // Also map common variations
+    if (toolName.includes(' ')) {
+      toolMap.set(toolName.replace(/\s+/g, '-'), tool.id);
+    }
+  });
+  
+  // Link common tools
+  commonTools.forEach(toolName => {
+    const regex = new RegExp(`\\b${toolName}\\b`, 'gi');
+    const toolId = toolMap.get(toolName.toLowerCase()) || toolName.toLowerCase();
+    processed = processed.replace(regex, (match) => {
+      // Don't replace if already inside a link
+      const before = processed.substring(0, processed.indexOf(match));
+      const after = processed.substring(processed.indexOf(match) + match.length);
+      if (before.includes('<a') && !before.includes('</a>')) {
+        return match;
+      }
+      return `<a href="/tools/${toolId}" class="tool-link">${match}</a>`;
+    });
+  });
+  
+  return processed;
+}
+
+// For now, just return the content as-is
+// The actual linking will be done client-side or via markdown processing
+const processedContent = content;
+---
+
+<style>
+  .tool-link {
+    color: var(--accent-color, #d4b78c);
+    text-decoration: none;
+    border-bottom: 1px dotted rgba(212, 183, 140, 0.5);
+    transition: all 0.2s;
+  }
+
+  .tool-link:hover {
+    color: var(--accent-color, #d4b78c);
+    border-bottom-color: var(--accent-color, #d4b78c);
+    border-bottom-style: solid;
+  }
+</style>
+
+<div set:html={processedContent} />
+
+<script>
+  // Client-side tool linking
+  (function() {
+    const toolLinks = document.querySelectorAll('.tool-link');
+    const commonTools = [
+      'nmap', 'metasploit', 'burp', 'zap', 'sqlmap', 'hashcat', 'john', 'mimikatz',
+      'bloodhound', 'impacket', 'crackmapexec', 'responder', 'rubeus', 'powershell',
+      'python', 'bash', 'gobuster', 'dirb', 'feroxbuster', 'nikto', 'nuclei',
+      'linpeas', 'winpeas', 'sharphound', 'evil-winrm', 'psexec', 'smbclient',
+      'enum4linux', 'ldapsearch', 'theharvester', 'shodan', 'maltego', 'recon-ng',
+      'masscan', 'rustscan', 'nessus', 'openvas', 'postman', 'insomnia',
+      'wappalyzer', 'whatweb', 'wfuzz', 'ffuf', 'xsser', 'xss-hunter'
+    ];
+    
+    // Process content blocks to link tools
+    function processContentForTools() {
+      const contentBlocks = document.querySelectorAll('.methodology-content p, .methodology-content li, .methodology-content td');
+      
+      contentBlocks.forEach(block => {
+        let html = block.innerHTML;
+        let modified = false;
+        
+        commonTools.forEach(tool => {
+          const regex = new RegExp(`\\b${tool}\\b`, 'gi');
+          if (regex.test(html) && !html.includes(`href="/tools/`)) {
+            html = html.replace(regex, (match) => {
+              modified = true;
+              return `<a href="/tools/${tool.toLowerCase()}" class="tool-link">${match}</a>`;
+            });
+          }
+        });
+        
+        if (modified) {
+          block.innerHTML = html;
+        }
+      });
+    }
+    
+    // Run on page load
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', processContentForTools);
+    } else {
+      processContentForTools();
+    }
+    
+    // Run on Astro page transitions
+    document.addEventListener('astro:page-load', processContentForTools);
+  })();
+</script>
+

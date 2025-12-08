@@ -1,0 +1,640 @@
+:root {
+  --bg-color: #0b0b0b;
+  --fg-color: #e6e0d6;
+  --accent-color: #d4b78c;
+  --card-bg: rgba(17,17,17,0.85);
+  --border-color: #222;
+  --scanline: rgba(255,255,255,0.02);
+  --text-muted: rgba(230, 224, 214, 0.6);
+}
+
+[data-theme="light"] {
+  --bg-color: #f5f0e8;
+  --fg-color: #2a1f15;
+  --accent-color: #d4b78c;
+  --card-bg: #2d2a22;
+  --card-text: #e6e0d6;
+  --border-color: rgba(212, 183, 140, 0.25);
+  --scanline: rgba(212, 183, 140, 0.04);
+  --text-muted: rgba(42, 31, 21, 0.65);
+  --overlay-bg: rgba(245, 240, 232, 0.85);
+  --shadow-color: rgba(212, 183, 140, 0.15);
+  --card-hover-bg: rgba(45, 42, 34, 0.95);
+}
+
+*,
+*:before,
+*:after {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  font-family: 'Poppins', sans-serif;
+  background: var(--bg-color);
+  color: var(--fg-color);
+  line-height: 1.6;
+  transition: background 0.3s, color 0.3s;
+}
+
+h1, h2, h3, h4, h5, h6 {
+  font-family: 'Poppins', sans-serif;
+  font-weight: 600;
+  line-height: 1.2;
+  margin: 0 0 0.5em 0;
+  /* Ensure headings wrap properly */
+  word-wrap: break-word;
+  overflow-wrap: break-word;
+  word-break: break-word;
+  hyphens: auto;
+  -webkit-hyphens: auto;
+  -ms-hyphens: auto;
+}
+
+h1 {
+  font-size: 2.5rem;
+  margin: 0 0 1em 0;
+}
+
+h2 {
+  font-size: 2rem;
+  margin: 1.6em 0 0 0;
+}
+
+h3 {
+  font-size: 1.5rem;
+}
+
+h4 {
+  font-size: 1.25rem;
+}
+
+p, ul, ol {
+  font-size: 1rem;
+  line-height: 1.75em;
+  /* margin: 1.2em 0; */
+  /* Ensure proper text wrapping */
+  word-wrap: break-word;
+  overflow-wrap: break-word;
+  word-break: break-word;
+  hyphens: auto;
+  -webkit-hyphens: auto;
+  -ms-hyphens: auto;
+}
+
+/* Ensure TOC nested items maintain proper indentation */
+.toc-wrapper ul,
+.toc-wrapper ol {
+  margin: 0;
+  padding: 0;
+}
+
+.toc-wrapper .toc-sublist {
+  padding-left: 2rem;
+  margin-left: 0;
+}
+
+a {
+  color: var(--accent-color);
+  text-decoration: none;
+  transition: color 0.2s;
+}
+
+a:hover {
+  color: var(--accent-color);
+  opacity: 0.8;
+}
+
+/* TOC active link glow effect - override global a styles */
+a.toc-link.active,
+.toc-link.active {
+  box-shadow: 
+    0 0 15px rgba(212, 183, 140, 0.4) !important,
+    0 0 8px rgba(212, 183, 140, 0.3) !important,
+    inset 0 0 10px rgba(212, 183, 140, 0.15) !important;
+  text-shadow: 
+    0 0 10px rgba(212, 183, 140, 0.8) !important,
+    0 0 5px rgba(212, 183, 140, 0.6) !important;
+}
+
+/* Light mode TOC active link - softer glow */
+[data-theme="light"] a.toc-link.active,
+[data-theme="light"] .toc-link.active {
+  box-shadow: 
+    0 0 12px rgba(212, 183, 140, 0.5) !important,
+    0 0 6px rgba(212, 183, 140, 0.4) !important,
+    inset 0 0 8px rgba(212, 183, 140, 0.2) !important;
+  text-shadow: 
+    0 0 8px rgba(212, 183, 140, 0.6) !important,
+    0 0 4px rgba(212, 183, 140, 0.4) !important;
+}
+
+code {
+  font-family: 'SF Mono', menlo, inconsolata, monospace;
+  font-size: 0.95em;
+  color: var(--accent-color);
+  padding: 0.2em 0.4em;
+  border-radius: 2px;
+  background: rgba(212, 183, 140, 0.1);
+}
+
+[data-theme="light"] code {
+  background: rgba(212, 183, 140, 0.15);
+  color: var(--accent-color);
+}
+
+pre {
+  border-radius: 8px;
+  margin: 1.2em 0;
+  padding: 1.2em;
+  background: #ccc7b2;
+  border: 1px solid rgba(204, 199, 178, 0.3);
+  overflow-x: visible;
+  overflow-wrap: break-word;
+  word-wrap: break-word;
+  white-space: pre-wrap;
+  position: relative;
+  /* Nier Automata style - light background */
+}
+
+pre code {
+  padding: 0;
+  background: transparent;
+  color: #0b0b0b;
+  font-size: 0.95em;
+  line-height: 1.6;
+  white-space: pre-wrap;
+  word-wrap: break-word;
+  overflow-wrap: break-word;
+}
+
+/* Override Shiki syntax highlighting colors for Nier Automata style */
+/* Target all possible Shiki/Astro code block combinations */
+pre.shiki,
+pre[class*="language-"],
+pre.astro-code,
+pre[class*="astro-code"],
+pre.nord,
+pre[class*="nord"],
+pre[class*="astro-code"][class*="nord"],
+pre.astro-code.nord {
+  background: #ccc7b2 !important;
+  color: #0b0b0b !important;
+  overflow-x: visible !important;
+  overflow-wrap: break-word !important;
+  word-wrap: break-word !important;
+  white-space: pre-wrap !important;
+}
+
+pre.shiki code,
+pre[class*="language-"] code,
+pre.astro-code code,
+pre[class*="astro-code"] code,
+pre.nord code,
+pre[class*="nord"] code,
+pre[class*="astro-code"][class*="nord"] code,
+pre.astro-code.nord code {
+  color: #0b0b0b !important;
+  background: transparent !important;
+  white-space: pre-wrap !important;
+  word-wrap: break-word !important;
+  overflow-wrap: break-word !important;
+}
+
+/* General override for any pre element containing code (catch-all) */
+pre:has(code) {
+  background: #ccc7b2 !important;
+  color: #0b0b0b !important;
+  overflow-x: visible !important;
+  overflow-wrap: break-word !important;
+  word-wrap: break-word !important;
+  white-space: pre-wrap !important;
+}
+
+pre:has(code) code {
+  color: #0b0b0b !important;
+  background: transparent !important;
+  white-space: pre-wrap !important;
+  word-wrap: break-word !important;
+  overflow-wrap: break-word !important;
+}
+
+/* Shiki token overrides for Nier Automata palette - darker colors for light background */
+pre.shiki .token.comment,
+pre[class*="language-"] .token.comment,
+pre.astro-code .token.comment,
+pre[class*="astro-code"] .token.comment,
+pre.nord .token.comment,
+pre[class*="nord"] .token.comment,
+pre.astro-code.nord .token.comment {
+  color: #6b5b3f !important;
+  font-style: italic;
+}
+
+pre.shiki .token.keyword,
+pre[class*="language-"] .token.keyword,
+pre.astro-code .token.keyword,
+pre[class*="astro-code"] .token.keyword,
+pre.nord .token.keyword,
+pre[class*="nord"] .token.keyword,
+pre.astro-code.nord .token.keyword {
+  color: #4a3a2a !important;
+  font-weight: 600;
+}
+
+pre.shiki .token.string,
+pre[class*="language-"] .token.string,
+pre.astro-code .token.string,
+pre[class*="astro-code"] .token.string,
+pre.nord .token.string,
+pre[class*="nord"] .token.string,
+pre.astro-code.nord .token.string {
+  color: #5a4a3a !important;
+}
+
+pre.shiki .token.function,
+pre[class*="language-"] .token.function,
+pre.astro-code .token.function,
+pre[class*="astro-code"] .token.function,
+pre.nord .token.function,
+pre[class*="nord"] .token.function,
+pre.astro-code.nord .token.function {
+  color: #3a2a1a !important;
+}
+
+pre.shiki .token.number,
+pre[class*="language-"] .token.number,
+pre.astro-code .token.number,
+pre[class*="astro-code"] .token.number,
+pre.nord .token.number,
+pre[class*="nord"] .token.number,
+pre.astro-code.nord .token.number {
+  color: #4a3a2a !important;
+}
+
+pre.shiki .token.operator,
+pre[class*="language-"] .token.operator,
+pre.astro-code .token.operator,
+pre[class*="astro-code"] .token.operator,
+pre.nord .token.operator,
+pre[class*="nord"] .token.operator,
+pre.astro-code.nord .token.operator {
+  color: #2a1a0a !important;
+}
+
+pre.shiki .token.punctuation,
+pre[class*="language-"] .token.punctuation,
+pre.astro-code .token.punctuation,
+pre[class*="astro-code"] .token.punctuation,
+pre.nord .token.punctuation,
+pre[class*="nord"] .token.punctuation,
+pre.astro-code.nord .token.punctuation {
+  color: #5a4a3a !important;
+}
+
+pre.shiki .token.variable,
+pre[class*="language-"] .token.variable,
+pre.astro-code .token.variable,
+pre[class*="astro-code"] .token.variable,
+pre.nord .token.variable,
+pre[class*="nord"] .token.variable,
+pre.astro-code.nord .token.variable {
+  color: #3a2a1a !important;
+}
+
+pre.shiki .token.property,
+pre[class*="language-"] .token.property,
+pre.astro-code .token.property,
+pre[class*="astro-code"] .token.property,
+pre.nord .token.property,
+pre[class*="nord"] .token.property,
+pre.astro-code.nord .token.property {
+  color: #4a3a2a !important;
+}
+
+/* Override all Shiki inline styles and spans - more aggressive */
+pre.astro-code span,
+pre.astro-code.nord span,
+pre[class*="astro-code"] span,
+pre.shiki span,
+pre[class*="nord"] span,
+pre[class*="language-"] span {
+  color: inherit !important;
+}
+
+/* Force color on all spans in code blocks - highest priority */
+pre code span,
+pre.shiki code span,
+pre.astro-code code span,
+pre[class*="astro-code"] code span,
+pre[class*="nord"] code span,
+pre[class*="language-"] code span {
+  color: #0b0b0b !important;
+}
+
+/* Apply token colors with higher specificity */
+pre.shiki span[class*="comment"],
+pre.astro-code span[class*="comment"],
+pre[class*="nord"] span[class*="comment"] {
+  color: #8b8680 !important;
+}
+
+pre.shiki span[class*="keyword"],
+pre.astro-code span[class*="keyword"],
+pre[class*="nord"] span[class*="keyword"] {
+  color: #8b6b34 !important;
+}
+
+pre.shiki span[class*="string"],
+pre.astro-code span[class*="string"],
+pre[class*="nord"] span[class*="string"] {
+  color: #a68b5b !important;
+}
+
+pre.shiki span[class*="function"],
+pre.astro-code span[class*="function"],
+pre[class*="nord"] span[class*="function"] {
+  color: #7a6b4f !important;
+}
+
+pre.shiki span[class*="number"],
+pre.astro-code span[class*="number"],
+pre[class*="nord"] span[class*="number"] {
+  color: #8b6b34 !important;
+}
+
+pre.shiki span[class*="operator"],
+pre.astro-code span[class*="operator"],
+pre[class*="nord"] span[class*="operator"] {
+  color: #6b5b3f !important;
+}
+
+pre.shiki span[class*="punctuation"],
+pre.astro-code span[class*="punctuation"],
+pre[class*="nord"] span[class*="punctuation"] {
+  color: #8b8680 !important;
+}
+
+pre.shiki span[class*="variable"],
+pre.astro-code span[class*="variable"],
+pre[class*="nord"] span[class*="variable"] {
+  color: #7a6b4f !important;
+}
+
+pre.shiki span[class*="property"],
+pre.astro-code span[class*="property"],
+pre[class*="nord"] span[class*="property"] {
+  color: #8b6b34 !important;
+}
+
+/* Override Shiki's inline styles - target spans with style attributes */
+pre.shiki span[style],
+pre.astro-code span[style],
+pre[class*="astro-code"] span[style],
+pre[class*="nord"] span[style],
+pre[class*="language-"] span[style],
+pre code span[style] {
+  color: #0b0b0b !important;
+}
+
+/* Token-specific overrides for spans with inline styles */
+pre.shiki span[style][class*="comment"],
+pre.astro-code span[style][class*="comment"],
+pre[class*="nord"] span[style][class*="comment"] {
+  color: #8b8680 !important;
+}
+
+pre.shiki span[style][class*="keyword"],
+pre.astro-code span[style][class*="keyword"],
+pre[class*="nord"] span[style][class*="keyword"] {
+  color: #8b6b34 !important;
+}
+
+pre.shiki span[style][class*="string"],
+pre.astro-code span[style][class*="string"],
+pre[class*="nord"] span[style][class*="string"] {
+  color: #a68b5b !important;
+}
+
+pre.shiki span[style][class*="function"],
+pre.astro-code span[style][class*="function"],
+pre[class*="nord"] span[style][class*="function"] {
+  color: #7a6b4f !important;
+}
+
+pre.shiki span[style][class*="number"],
+pre.astro-code span[style][class*="number"],
+pre[class*="nord"] span[style][class*="number"] {
+  color: #8b6b34 !important;
+}
+
+pre.shiki span[style][class*="operator"],
+pre.astro-code span[style][class*="operator"],
+pre[class*="nord"] span[style][class*="operator"] {
+  color: #6b5b3f !important;
+}
+
+pre.shiki span[style][class*="punctuation"],
+pre.astro-code span[style][class*="punctuation"],
+pre[class*="nord"] span[style][class*="punctuation"] {
+  color: #8b8680 !important;
+}
+
+pre.shiki span[style][class*="variable"],
+pre.astro-code span[style][class*="variable"],
+pre[class*="nord"] span[style][class*="variable"] {
+  color: #7a6b4f !important;
+}
+
+pre.shiki span[style][class*="property"],
+pre.astro-code span[style][class*="property"],
+pre[class*="nord"] span[style][class*="property"] {
+  color: #8b6b34 !important;
+}
+
+pre.astro-code code,
+pre.astro-code.nord code,
+pre[class*="astro-code"] code {
+  color: #0b0b0b !important;
+  background: transparent !important;
+}
+
+/* Copy button for code blocks */
+.code-block-wrapper {
+  position: relative;
+  margin: 1.2em 0;
+}
+
+.code-copy-button {
+  position: absolute;
+  bottom: 0.5rem;
+  right: 0.5rem;
+  background: rgba(11, 11, 11, 0.15);
+  border: 1px solid rgba(11, 11, 11, 0.25);
+  color: #0b0b0b;
+  padding: 0.35rem 0.5rem;
+  border-radius: 4px;
+  font-family: 'Poppins', sans-serif;
+  font-size: 0.7rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  z-index: 10;
+  backdrop-filter: blur(4px);
+  opacity: 0.6;
+  min-width: 50px;
+  text-align: center;
+}
+
+pre:hover .code-copy-button {
+  opacity: 1;
+  background: rgba(11, 11, 11, 0.25);
+  border-color: rgba(11, 11, 11, 0.4);
+}
+
+.code-copy-button:hover {
+  background: rgba(11, 11, 11, 0.35);
+  border-color: rgba(11, 11, 11, 0.5);
+  transform: translateY(-1px);
+  opacity: 1;
+}
+
+.code-copy-button:active {
+  transform: translateY(0);
+}
+
+.code-copy-button.copied {
+  background: rgba(11, 11, 11, 0.4);
+  border-color: #0b0b0b;
+  color: #0b0b0b;
+  opacity: 1;
+}
+
+/* Light theme adjustments */
+[data-theme="light"] pre {
+  background: #e8e0d0;
+  border-color: rgba(212, 183, 140, 0.4);
+}
+
+[data-theme="light"] pre code {
+  color: #2a1f15;
+}
+
+[data-theme="light"] pre.shiki,
+[data-theme="light"] pre[class*="language-"],
+[data-theme="light"] pre.astro-code,
+[data-theme="light"] pre.astro-code.nord {
+  background: #e8e0d0 !important;
+  color: #2a1f15 !important;
+}
+
+[data-theme="light"] pre.astro-code code,
+[data-theme="light"] pre.astro-code.nord code {
+  color: #2a1f15 !important;
+}
+
+/* Light mode code copy button */
+[data-theme="light"] .code-copy-button {
+  background: rgba(42, 31, 21, 0.1);
+  border: 1px solid rgba(212, 183, 140, 0.4);
+  color: #2a1f15;
+}
+
+[data-theme="light"] pre:hover .code-copy-button {
+  background: rgba(42, 31, 21, 0.15);
+  border-color: rgba(212, 183, 140, 0.5);
+}
+
+[data-theme="light"] .code-copy-button:hover {
+  background: rgba(42, 31, 21, 0.2);
+  border-color: rgba(212, 183, 140, 0.6);
+}
+
+[data-theme="light"] .code-copy-button.copied {
+  background: rgba(212, 183, 140, 0.3);
+  border-color: var(--accent-color);
+  color: #2a1f15;
+}
+
+table {
+  border-collapse: collapse;
+  width: 100%;
+  margin: 2em 0;
+}
+
+th, td {
+  padding: 0.75em;
+  text-align: left;
+  border-bottom: 1px solid var(--border-color);
+}
+
+th {
+  font-weight: 600;
+  background: var(--card-bg);
+}
+
+/* Chirpy-style: Responsive typography for readability */
+@media (max-width: 768px) {
+  h1 {
+    font-size: 1.875rem;
+    line-height: 1.3;
+  }
+  
+  h2 {
+    font-size: 1.5rem;
+    line-height: 1.4;
+  }
+
+  h3 {
+    font-size: 1.25rem;
+    line-height: 1.4;
+  }
+  
+  p, ul, ol {
+    font-size: 0.95rem;
+    line-height: 1.7;
+  }
+
+  /* Ensure code blocks are readable on mobile */
+  pre {
+    font-size: 0.875rem;
+    padding: 0.875rem;
+    overflow-x: auto;
+  }
+
+  code {
+    font-size: 0.875em;
+  }
+}
+
+@media (max-width: 480px) {
+  h1 {
+    font-size: 1.625rem;
+    line-height: 1.3;
+  }
+  
+  h2 {
+    font-size: 1.375rem;
+    line-height: 1.35;
+  }
+
+  h3 {
+    font-size: 1.125rem;
+    line-height: 1.4;
+  }
+  
+  p, ul, ol {
+    font-size: 0.9rem;
+    line-height: 1.65;
+  }
+
+  pre {
+    font-size: 0.8125rem;
+    padding: 0.75rem;
+  }
+
+  code {
+    font-size: 0.85em;
+  }
+}
+

@@ -1,0 +1,217 @@
+---
+// Related Methodologies Component
+// Displays related methodologies at the bottom of methodology detail pages
+
+import { getCollection } from 'astro:content';
+import { generateTitleFromFilename } from '../utils/content';
+
+interface Props {
+  currentMethodology: any;
+  limit?: number;
+}
+
+const { currentMethodology, limit = 3 } = Astro.props;
+
+// Get all methodologies
+const allMethodologies = await getCollection('methodologies');
+
+// Find related methodologies based on:
+// 1. relatedMethodologies field in frontmatter
+// 2. Same category
+// 3. Similar difficulty
+// 4. Shared tags
+
+let related: Array<{ title: string; href: string; description: string; category: string }> = [];
+
+// First, check for explicitly related methodologies
+if (currentMethodology.data.relatedMethodologies && currentMethodology.data.relatedMethodologies.length > 0) {
+  const relatedIds = currentMethodology.data.relatedMethodologies;
+  related = allMethodologies
+    .filter(m => relatedIds.includes(m.id.replace(/\.md$/, '')) && m.id !== currentMethodology.id)
+    .map(m => {
+      const parts = m.id.split('/').filter((p: string) => p);
+      return {
+        title: m.data.title || generateTitleFromFilename(parts[parts.length - 1]?.replace('.md', '') || ''),
+        href: `/methodologies/${m.id.replace(/\.md$/, '')}`,
+        description: m.data.description || '',
+        category: m.data.category || parts[0] || ''
+      };
+    })
+    .slice(0, limit);
+}
+
+// If not enough, add from same category
+if (related.length < limit && currentMethodology.data.category) {
+  const sameCategory = allMethodologies
+    .filter(m => 
+      m.id !== currentMethodology.id &&
+      m.data.category === currentMethodology.data.category &&
+      !related.find(r => r.href === `/methodologies/${m.id.replace(/\.md$/, '')}`)
+    )
+    .map(m => {
+      const parts = m.id.split('/').filter((p: string) => p);
+      return {
+        title: m.data.title || generateTitleFromFilename(parts[parts.length - 1]?.replace('.md', '') || ''),
+        href: `/methodologies/${m.id.replace(/\.md$/, '')}`,
+        description: m.data.description || '',
+        category: m.data.category || parts[0] || ''
+      };
+    })
+    .slice(0, limit - related.length);
+  
+  related = [...related, ...sameCategory];
+}
+
+// If still not enough, add from same difficulty
+if (related.length < limit && currentMethodology.data.difficulty) {
+  const sameDifficulty = allMethodologies
+    .filter(m => 
+      m.id !== currentMethodology.id &&
+      m.data.difficulty === currentMethodology.data.difficulty &&
+      !related.find(r => r.href === `/methodologies/${m.id.replace(/\.md$/, '')}`)
+    )
+    .map(m => {
+      const parts = m.id.split('/').filter((p: string) => p);
+      return {
+        title: m.data.title || generateTitleFromFilename(parts[parts.length - 1]?.replace('.md', '') || ''),
+        href: `/methodologies/${m.id.replace(/\.md$/, '')}`,
+        description: m.data.description || '',
+        category: m.data.category || parts[0] || ''
+      };
+    })
+    .slice(0, limit - related.length);
+  
+  related = [...related, ...sameDifficulty];
+}
+
+// If still not enough, add any other methodologies
+if (related.length < limit) {
+  const others = allMethodologies
+    .filter(m => 
+      m.id !== currentMethodology.id &&
+      !related.find(r => r.href === `/methodologies/${m.id.replace(/\.md$/, '')}`)
+    )
+    .map(m => {
+      const parts = m.id.split('/').filter((p: string) => p);
+      return {
+        title: m.data.title || generateTitleFromFilename(parts[parts.length - 1]?.replace('.md', '') || ''),
+        href: `/methodologies/${m.id.replace(/\.md$/, '')}`,
+        description: m.data.description || '',
+        category: m.data.category || parts[0] || ''
+      };
+    })
+    .slice(0, limit - related.length);
+  
+  related = [...related, ...others];
+}
+
+const hasRelated = related.length > 0;
+---
+
+{hasRelated && (
+  <div class="related-methodologies">
+    <h2 class="related-methodologies-title">Related Methodologies</h2>
+    <div class="related-methodologies-grid">
+      {related.map((methodology) => (
+        <a href={methodology.href} class="related-methodology-card">
+          <div class="related-methodology-header">
+            <h3 class="related-methodology-title">{methodology.title}</h3>
+            {methodology.category && (
+              <span class="related-methodology-category">{methodology.category.replace(/-/g, ' ')}</span>
+            )}
+          </div>
+          {methodology.description && (
+            <p class="related-methodology-description">{methodology.description}</p>
+          )}
+        </a>
+      ))}
+    </div>
+  </div>
+)}
+
+<style>
+  .related-methodologies {
+    margin-top: 3rem;
+    padding-top: 3rem;
+    border-top: 1px solid var(--border-color, #222);
+  }
+
+  .related-methodologies-title {
+    font-size: 1.5rem;
+    font-weight: 600;
+    margin-bottom: 1.5rem;
+    font-family: 'Poppins', sans-serif;
+    color: var(--fg-color, #e6e0d6);
+  }
+
+  .related-methodologies-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 1.5rem;
+  }
+
+  .related-methodology-card {
+    display: flex;
+    flex-direction: column;
+    padding: 1.5rem;
+    background: var(--card-bg, rgba(255, 255, 255, 0.02));
+    border: 1px solid var(--border-color, #222);
+    border-radius: 12px;
+    text-decoration: none;
+    color: var(--fg-color, #e6e0d6);
+    transition: all 0.3s ease;
+  }
+
+  .related-methodology-card:hover {
+    border-color: var(--accent-color, #d4b78c);
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(212, 183, 140, 0.15);
+  }
+
+  .related-methodology-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: start;
+    margin-bottom: 0.75rem;
+    gap: 1rem;
+  }
+
+  .related-methodology-title {
+    font-size: 1.1rem;
+    font-weight: 600;
+    margin: 0;
+    font-family: 'Poppins', sans-serif;
+    color: var(--accent-color, #d4b78c);
+    flex: 1;
+  }
+
+  .related-methodology-category {
+    padding: 0.25rem 0.75rem;
+    background: rgba(212, 183, 140, 0.15);
+    border: 1px solid rgba(212, 183, 140, 0.3);
+    border-radius: 4px;
+    font-size: 0.75rem;
+    color: var(--accent-color, #d4b78c);
+    text-transform: capitalize;
+    white-space: nowrap;
+    flex-shrink: 0;
+  }
+
+  .related-methodology-description {
+    font-size: 0.9rem;
+    line-height: 1.6;
+    color: var(--text-muted, #999);
+    margin: 0;
+    display: -webkit-box;
+    -webkit-line-clamp: 3;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+
+  @media (max-width: 768px) {
+    .related-methodologies-grid {
+      grid-template-columns: 1fr;
+    }
+  }
+</style>
+

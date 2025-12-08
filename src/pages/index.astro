@@ -1,0 +1,637 @@
+---
+import BaseLayout from '../layouts/BaseLayout.astro';
+import Icon from '../components/Icons.astro';
+import { getCollection } from 'astro:content';
+import { enrichCertData } from '../utils/content';
+
+const title = 'Knowledge Base - Cybersecurity Resources';
+const description = 'Comprehensive knowledge base for penetration testing, red teaming, and cybersecurity certifications';
+
+// Get content counts
+const allCerts = await getCollection('certifications');
+const allGuides = await getCollection('guides');
+const allMethodologiesRaw = await getCollection('methodologies');
+// Filter out only the root-level README.md (index file), not subdirectory README files which contain methodology content
+const allMethodologies = allMethodologiesRaw.filter(item => {
+  const parts = item.id.split('/').filter(p => p);
+  const filename = parts[parts.length - 1]?.replace('.md', '') || '';
+  // Only exclude root-level README.md (the index file), keep subdirectory README files
+  return !(filename.toLowerCase() === 'readme' && parts.length === 1);
+});
+
+// Get unique categories for certifications
+const enrichedCerts = allCerts.map(enrichCertData);
+const certCategories = [...new Set(enrichedCerts.map(c => c.data.category).filter(Boolean))].sort();
+
+// Get recently updated (by file modification - we'll use a simple approach)
+// Sort by ID to get a consistent order, then take recent ones
+const recentCerts = enrichedCerts
+  .filter(c => {
+    const parts = c.id.split('/').filter(p => p);
+    return parts.length >= 2;
+  })
+  .slice(-6)
+  .reverse();
+
+const recentMethodologies = allMethodologies.slice(-4).reverse();
+---
+
+<BaseLayout title={title} description={description} permalink={`${Astro.site.href}`} current="home">
+  <style>
+    .home-container {
+      max-width: 1400px;
+      margin: 0 auto;
+      padding: 2rem;
+      position: relative;
+      z-index: 20;
+      width: 100%;
+      box-sizing: border-box;
+    }
+
+    /* Hero Section */
+    .hero-section {
+      text-align: center;
+      margin-bottom: 3rem;
+      padding: 2rem 0;
+    }
+
+    .hero-title-container {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      gap: 0.75rem;
+      margin-bottom: 2rem;
+      flex-wrap: wrap;
+    }
+
+    .hero-icon-container {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      flex-shrink: 0;
+    }
+
+    .hero-icon {
+      width: 120px;
+      height: 120px;
+      object-fit: contain;
+      filter: drop-shadow(0 4px 12px rgba(212, 183, 140, 0.3));
+      transition: transform 0.3s ease;
+      animation: naturalGlow 3s ease-in-out infinite;
+    }
+
+    .hero-icon:hover {
+      transform: scale(1.05);
+    }
+
+    @keyframes naturalGlow {
+      0%, 100% {
+        filter: drop-shadow(0 4px 12px rgba(212, 183, 140, 0.3)) 
+                drop-shadow(0 0 8px rgba(212, 183, 140, 0.25))
+                drop-shadow(0 0 16px rgba(212, 183, 140, 0.2));
+      }
+      50% {
+        filter: drop-shadow(0 4px 20px rgba(212, 183, 140, 0.8)) 
+                drop-shadow(0 0 28px rgba(212, 183, 140, 0.7))
+                drop-shadow(0 0 40px rgba(212, 183, 140, 0.6));
+      }
+    }
+
+    .hero-title {
+      font-size: 3.5rem;
+      font-weight: 700;
+      margin: 0;
+      color: var(--accent-color, #d4b78c);
+      font-family: 'Poppins', sans-serif;
+      letter-spacing: -0.02em;
+      background: linear-gradient(135deg, var(--accent-color, #d4b78c) 0%, rgba(212, 183, 140, 0.7) 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+
+    html[data-theme="light"] .hero-title,
+    html:not([data-theme="dark"]) .hero-title,
+    body:not(.theme-dark) .hero-title {
+      color: #2a1f15 !important;
+      background: linear-gradient(135deg, #2a1f15 0%, rgba(42, 31, 21, 0.8) 100%) !important;
+      -webkit-background-clip: text !important;
+      -webkit-text-fill-color: transparent !important;
+      background-clip: text !important;
+    }
+
+    .hero-subtitle {
+      font-size: 1.25rem;
+      color: var(--text-muted, rgba(230, 224, 214, 0.7));
+      margin: 0 0 2rem;
+      max-width: 700px;
+      margin-left: auto;
+      margin-right: auto;
+      line-height: 1.6;
+    }
+
+    [data-theme="light"] .hero-subtitle {
+      color: rgba(42, 31, 21, 0.7);
+    }
+
+    /* Search Bar */
+    .search-section {
+      max-width: 700px;
+      margin: 0 auto 3rem;
+    }
+
+    .search-wrapper {
+      position: relative;
+    }
+
+    .search-input {
+      width: 100%;
+      padding: 1.25rem 1.25rem 1.25rem 3.5rem;
+      background: rgba(11, 11, 11, 0.6);
+      border: 2px solid rgba(212, 183, 140, 0.2);
+      border-radius: 12px;
+      color: var(--fg-color, #e6e0d6);
+      font-size: 1rem;
+      font-family: 'Poppins', sans-serif;
+      box-sizing: border-box;
+      transition: all 0.3s ease;
+    }
+
+    .search-input:focus {
+      outline: none;
+      border-color: var(--accent-color, #d4b78c);
+      background: rgba(11, 11, 11, 0.8);
+      box-shadow: 0 0 0 4px rgba(212, 183, 140, 0.1);
+    }
+
+    .search-icon {
+      position: absolute;
+      left: 1.25rem;
+      top: 50%;
+      transform: translateY(-50%);
+      color: var(--text-muted, rgba(230, 224, 214, 0.5));
+      pointer-events: none;
+      animation: searchIconGlow 4s ease-in-out infinite;
+      will-change: filter;
+    }
+
+    @keyframes searchIconGlow {
+      0%, 100% {
+        filter: drop-shadow(0 0 2px rgba(212, 183, 140, 0.2));
+      }
+      50% {
+        filter: drop-shadow(0 0 6px rgba(212, 183, 140, 0.4));
+      }
+    }
+
+    .search-hint {
+      text-align: center;
+      margin-top: 0.75rem;
+      font-size: 0.875rem;
+      color: var(--text-muted, rgba(230, 224, 214, 0.5));
+    }
+
+    /* Main Navigation Cards */
+    .nav-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+      gap: 2rem;
+      margin-bottom: 0;
+    }
+
+    .nav-card {
+      background: var(--card-bg, rgba(17, 17, 17, 0.85));
+      border: 1px solid rgba(212, 183, 140, 0.15);
+      border-radius: 16px;
+      padding: 2rem;
+      text-decoration: none;
+      color: inherit;
+      transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+      position: relative;
+      overflow: hidden;
+      display: block;
+    }
+
+    [data-theme="light"] .nav-card {
+      background: #2d2a22;
+      border-color: rgba(212, 183, 140, 0.2);
+    }
+
+    [data-theme="light"] .nav-card:hover {
+      background: rgba(45, 42, 34, 0.95);
+      border-color: rgba(212, 183, 140, 0.35);
+      box-shadow: 0 12px 32px rgba(212, 183, 140, 0.12),
+                  0 0 20px rgba(212, 183, 140, 0.15),
+                  inset 0 0 20px rgba(212, 183, 140, 0.03);
+    }
+
+    html[data-theme="light"] .nav-card-title,
+    html:not([data-theme="dark"]) .nav-card-title,
+    body:not(.theme-dark) .nav-card-title {
+      color: #e6e0d6 !important;
+    }
+
+    html[data-theme="light"] .nav-card-description,
+    html:not([data-theme="dark"]) .nav-card-description,
+    body:not(.theme-dark) .nav-card-description {
+      color: rgba(230, 224, 214, 0.8) !important;
+    }
+
+    [data-theme="light"] .nav-card-count {
+      color: #d4b78c;
+    }
+
+    .nav-card::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: 3px;
+      background: linear-gradient(90deg, transparent, var(--accent-color, #d4b78c), transparent);
+      opacity: 0;
+      transition: opacity 0.3s ease;
+    }
+
+    .nav-card:hover {
+      border-color: var(--accent-color, #d4b78c);
+      box-shadow: 0 12px 32px rgba(212, 183, 140, 0.15),
+                  0 0 20px rgba(212, 183, 140, 0.2),
+                  inset 0 0 20px rgba(212, 183, 140, 0.05);
+      transform: translateY(-4px);
+      text-decoration: none;
+    }
+
+    .nav-card:hover::before {
+      opacity: 1;
+    }
+
+    .nav-card-header {
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+      margin-bottom: 1rem;
+    }
+
+    .nav-card-icon {
+      width: 48px;
+      height: 48px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: rgba(212, 183, 140, 0.1);
+      border-radius: 12px;
+      color: var(--accent-color, #d4b78c);
+      flex-shrink: 0;
+      animation: cardIconGlow 5s ease-in-out infinite;
+      will-change: filter, box-shadow;
+    }
+
+    .nav-card:nth-child(1) .nav-card-icon {
+      animation-delay: 0s;
+    }
+    .nav-card:nth-child(2) .nav-card-icon {
+      animation-delay: 1s;
+    }
+    .nav-card:nth-child(3) .nav-card-icon {
+      animation-delay: 2s;
+    }
+    .nav-card:nth-child(4) .nav-card-icon {
+      animation-delay: 3s;
+    }
+
+    @keyframes cardIconGlow {
+      0%, 100% {
+        filter: drop-shadow(0 0 2px rgba(212, 183, 140, 0.2));
+        box-shadow: 0 0 0 rgba(212, 183, 140, 0);
+      }
+      50% {
+        filter: drop-shadow(0 0 8px rgba(212, 183, 140, 0.5));
+        box-shadow: 0 0 12px rgba(212, 183, 140, 0.3);
+      }
+    }
+
+    .nav-card-title {
+      font-size: 1.5rem;
+      font-weight: 600;
+      margin: 0;
+      color: var(--fg-color, #e6e0d6);
+      font-family: 'Poppins', sans-serif;
+    }
+
+    .nav-card-description {
+      font-size: 0.95rem;
+      color: var(--text-muted, rgba(230, 224, 214, 0.7));
+      margin: 0 0 1rem;
+      line-height: 1.6;
+    }
+
+    .nav-card-count {
+      font-size: 0.875rem;
+      color: var(--accent-color, #d4b78c);
+      font-weight: 500;
+      margin-top: auto;
+    }
+
+    /* Coming Soon Styling */
+    .nav-card.coming-soon {
+      opacity: 0.6;
+      cursor: default;
+      pointer-events: none;
+      border-color: rgba(212, 183, 140, 0.1);
+      background: rgba(17, 17, 17, 0.5);
+    }
+
+    .nav-card.coming-soon:hover {
+      transform: none;
+      border-color: rgba(212, 183, 140, 0.1);
+      box-shadow: none;
+    }
+
+    .nav-card.coming-soon:hover::before {
+      opacity: 0;
+    }
+
+    .coming-soon-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+      padding: 0.4rem 0.75rem;
+      background: rgba(212, 183, 140, 0.15);
+      border: 1px dashed rgba(212, 183, 140, 0.4);
+      border-radius: 6px;
+      font-size: 0.75rem;
+      font-weight: 600;
+      color: var(--accent-color, #d4b78c);
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      font-family: 'Poppins', sans-serif;
+      margin-top: 0.5rem;
+    }
+
+    /* Empty State */
+    .empty-state {
+      text-align: center;
+      padding: 3rem 1rem;
+      color: var(--text-muted, rgba(230, 224, 214, 0.6));
+    }
+
+    /* Responsive */
+    @media (max-width: 768px) {
+      .home-container {
+        padding: 1rem;
+      }
+
+      .hero-section {
+        padding: 2rem 0 1.5rem;
+        margin-bottom: 3rem;
+      }
+
+      .hero-title-container {
+        gap: 0.5rem;
+        flex-wrap: nowrap;
+      }
+
+      .hero-title {
+        font-size: 2.5rem;
+      }
+
+      .hero-icon {
+        width: 80px;
+        height: 80px;
+      }
+
+      .hero-subtitle {
+        font-size: 1.1rem;
+      }
+
+      .nav-grid {
+        grid-template-columns: 1fr;
+        gap: 1.5rem;
+      }
+    }
+
+    @media (max-width: 480px) {
+      .hero-title-container {
+        gap: 0.4rem;
+      }
+
+      .hero-title {
+        font-size: 2rem;
+      }
+
+      .hero-icon {
+        width: 70px;
+        height: 70px;
+      }
+    }
+
+    @media (max-width: 360px) {
+      .hero-title-container {
+        flex-wrap: wrap;
+        justify-content: center;
+      }
+
+      .hero-title {
+        font-size: 1.75rem;
+        width: 100%;
+      }
+
+      .hero-icon {
+        width: 60px;
+        height: 60px;
+      }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      .hero-icon,
+      .search-icon,
+      .nav-card-icon {
+        animation: none;
+      }
+    }
+  </style>
+
+  <div class="home-container" data-page-type="home">
+    <!-- Hero Section -->
+    <div class="hero-section">
+      <div class="hero-title-container">
+        <h1 class="hero-title">Knowledge Base</h1>
+      <div class="hero-icon-container">
+        <img 
+          src="/assets/book-icon.png" 
+          alt="Knowledge Base" 
+          class="hero-icon"
+        />
+      </div>
+      </div>
+      <p class="hero-subtitle">
+        Comprehensive resources for penetration testing, red teaming, and cybersecurity certifications
+      </p>
+    </div>
+
+    <!-- Search Section -->
+    <div class="search-section">
+      <div class="search-wrapper">
+        <div class="search-icon">
+          <Icon name="search" size={20} />
+        </div>
+        <input 
+          type="text" 
+          class="search-input" 
+          id="search-input"
+          placeholder="Search certifications, methodology, tools..."
+          autocomplete="off"
+        />
+      </div>
+      <p class="search-hint">Press Enter to search or use the menu to browse by category</p>
+    </div>
+
+    <!-- Main Navigation -->
+    <div class="nav-grid">
+      <a href="/certifications" class="nav-card">
+        <div class="nav-card-header">
+          <div class="nav-card-icon">
+            <Icon name="certifications" size={24} />
+          </div>
+          <h2 class="nav-card-title">Certifications</h2>
+        </div>
+        <p class="nav-card-description">
+          Comprehensive notes and cheat sheets for cybersecurity certifications including OSCP, eWPTX, CRTP, and more.
+        </p>
+        <div class="nav-card-count">{allCerts.length} pages</div>
+      </a>
+
+      <div class="nav-card coming-soon">
+        <div class="nav-card-header">
+          <div class="nav-card-icon">
+            <Icon name="methodology" size={24} />
+          </div>
+          <h2 class="nav-card-title">Methodologies</h2>
+        </div>
+        <p class="nav-card-description">
+          Structured approaches and methodologies for penetration testing, red teaming, and security assessments.
+        </p>
+        <div class="nav-card-count">{allMethodologies.length} guides</div>
+        <div class="coming-soon-badge">Coming Soon</div>
+      </div>
+
+      <div class="nav-card coming-soon">
+        <div class="nav-card-header">
+          <div class="nav-card-icon">
+            <Icon name="guides" size={24} />
+          </div>
+          <h2 class="nav-card-title">Guides</h2>
+        </div>
+        <p class="nav-card-description">
+          Step-by-step guides, tutorials, and walkthroughs for various cybersecurity topics, techniques, and tools.
+        </p>
+        <div class="nav-card-count">{allGuides.length} pages</div>
+        <div class="coming-soon-badge">Coming Soon</div>
+      </div>
+
+      <div class="nav-card coming-soon">
+        <div class="nav-card-header">
+          <div class="nav-card-icon">
+            <Icon name="techniques" size={24} />
+          </div>
+          <h2 class="nav-card-title">Techniques</h2>
+        </div>
+        <p class="nav-card-description">
+          Comprehensive collection of attack techniques, MITRE ATT&CK tactics, and offensive security methodologies.
+        </p>
+        <div class="nav-card-count">0 techniques</div>
+        <div class="coming-soon-badge">Coming Soon</div>
+      </div>
+    </div>
+
+  </div>
+
+  <script>
+    // Page-specific content validation for index page
+    // The global cache detection in BaseLayout handles most cases,
+    // but this adds additional checks for page-specific elements
+    (function() {
+      let hasCheckedSpecificContent = false;
+      
+      // Function to check if page-specific content is properly loaded
+      function checkPageContentLoaded() {
+        // Check for key elements that should always be present on index page
+        const navCards = document.querySelectorAll('.nav-card');
+        const heroTitle = document.querySelector('.hero-title');
+        const searchInput = document.getElementById('search-input');
+        
+        // If critical content is missing, return false
+        return navCards.length > 0 && heroTitle && searchInput;
+      }
+      
+      // Check page-specific content after a delay
+      function ensurePageContentLoaded() {
+        if (hasCheckedSpecificContent) return;
+        
+        setTimeout(() => {
+          if (!checkPageContentLoaded()) {
+            // Page-specific content is missing
+            // The global handler in BaseLayout will handle the reload
+            if (import.meta.env.DEV) {
+              console.warn('Index page content validation failed - global handler will reload if needed');
+            }
+          }
+          hasCheckedSpecificContent = true;
+        }, 400);
+      }
+      
+      // Initial check
+      if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', ensurePageContentLoaded);
+      } else {
+        ensurePageContentLoaded();
+      }
+      
+      // Re-check on Astro view transitions
+      document.addEventListener('astro:page-load', () => {
+        hasCheckedSpecificContent = false;
+        ensurePageContentLoaded();
+      });
+    })();
+
+    // Simple search functionality
+    const searchInput = document.getElementById('search-input');
+    
+    if (searchInput) {
+      searchInput.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') {
+          const query = searchInput.value.trim();
+          if (query) {
+            // Navigate to certifications page with search query
+            // The certifications page can handle the search
+            window.location.href = `/certifications?search=${encodeURIComponent(query)}`;
+          }
+        }
+      });
+
+      // Focus search on '/' key
+      document.addEventListener('keydown', (e) => {
+        if (e.key === '/' && e.target !== searchInput && !e.ctrlKey && !e.metaKey) {
+          e.preventDefault();
+          searchInput.focus();
+        }
+      });
+    }
+
+    // Re-initialize on Astro page transitions
+    document.addEventListener('astro:page-load', () => {
+      const searchInput = document.getElementById('search-input');
+      if (searchInput) {
+        searchInput.addEventListener('keydown', (e) => {
+          if (e.key === 'Enter') {
+            const query = searchInput.value.trim();
+            if (query) {
+              window.location.href = `/certifications?search=${encodeURIComponent(query)}`;
+            }
+          }
+        });
+      }
+    });
+  </script>
+</BaseLayout>

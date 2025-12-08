@@ -1,0 +1,1132 @@
+---
+import BaseHead from '../components/BaseHead.astro';
+import KnowledgeBaseMenu from '../components/KnowledgeBaseMenu.astro';
+
+export interface Props {
+  title: string;
+  description: string;
+  permalink: string;
+  current?: string;
+}
+const { title, description, permalink, current } = Astro.props;
+---
+
+<html lang="en">
+<head>
+  <BaseHead title={title} description={description} permalink={permalink} />
+  <meta http-equiv="x-dns-prefetch-control" content="on" />
+</head>
+<body class="theme-dark">
+  <KnowledgeBaseMenu current={current} />
+  
+  <button class="menu-toggle-btn" id="menu-toggle-btn" aria-label="Toggle menu">
+    <span class="menu-icon">☰</span>
+    <span class="menu-text">Menu</span>
+  </button>
+
+  <main>
+    <slot />
+  </main>
+</body>
+</html>
+
+<style>
+  :root {
+    --bg-color: #0b0b0b;
+    --fg-color: #e6e0d6;
+    --accent-color: #d4b78c;
+    --card-bg: rgba(17,17,17,0.85);
+    --border-color: #222;
+    --scanline: rgba(255,255,255,0.02);
+  }
+  [data-theme="light"] {
+    --bg-color: #f5f0e8;
+    --fg-color: #2a1f15;
+    --accent-color: #d4b78c;
+    --card-bg: #2d2a22;
+    --card-text: #e6e0d6;
+    --border-color: rgba(212, 183, 140, 0.25);
+    --scanline: rgba(212, 183, 140, 0.04);
+    --overlay-bg: rgba(245, 240, 232, 0.85);
+    --shadow-color: rgba(212, 183, 140, 0.15);
+    --card-hover-bg: rgba(45, 42, 34, 0.95);
+  }
+
+  body.theme-dark {
+    margin: 0;
+    font-family: 'Poppins', sans-serif;
+    background: var(--bg-color);
+    color: var(--fg-color);
+    position: relative;
+    /* Chirpy-style: No positioning that creates stacking context */
+    overflow-x: hidden;
+    transition: background 0.3s, color 0.3s;
+  }
+  
+  @media (prefers-reduced-motion: reduce) {
+    body.theme-dark {
+      background-attachment: scroll;
+    }
+  }
+
+  /* Background wallpaper - positioned to respect sidebar */
+  body.theme-dark::after {
+    content: "";
+    position: fixed;
+    top: 0; left: 0;
+    width: 100%; height: 100%;
+    background-image: url('/assets/wallpaper-dark.jpg');
+    background-size: cover;
+    background-position: center;
+    background-repeat: no-repeat;
+    pointer-events: none;
+    z-index: 0;
+    /* Behind main content */
+  }
+
+  /* Light mode wallpaper */
+  body:not(.theme-dark)::after {
+    content: "";
+    position: fixed;
+    top: 0; left: 0;
+    width: 100%; height: 100%;
+    background-image: url('/assets/wallpaper-light.png');
+    background-size: cover;
+    background-position: center;
+    background-repeat: no-repeat;
+    pointer-events: none;
+    z-index: 0;
+    /* Behind main content */
+  }
+
+  @media (min-width: 769px) {
+    body.theme-dark::after,
+    body:not(.theme-dark)::after {
+      /* On desktop, only cover the area not occupied by sidebar */
+      left: 280px;
+      width: calc(100% - 280px);
+    }
+  }
+
+  /* Overlay gradient on top of wallpaper */
+  body.theme-dark::before {
+    content: "";
+    position: fixed;
+    top: 0; left: 0;
+    width: 100%; height: 100%;
+    /* NieR Wiki style: lighter overlay to show background better */
+    background: linear-gradient(135deg, rgba(11, 11, 11, 0.4) 0%, rgba(28, 28, 28, 0.3) 100%),
+                repeating-linear-gradient(
+                  var(--scanline) 0px,
+                  var(--scanline) 1px,
+                  transparent 1px,
+                  transparent 3px
+                );
+    pointer-events: none;
+    z-index: 1;
+    /* Behind main content, above wallpaper */
+  }
+
+  /* Light mode overlay - warmer, lighter gradient */
+  body:not(.theme-dark)::before {
+    content: "";
+    position: fixed;
+    top: 0; left: 0;
+    width: 100%; height: 100%;
+    background: linear-gradient(135deg, rgba(245, 240, 232, 0.6) 0%, rgba(255, 250, 240, 0.5) 100%),
+                repeating-linear-gradient(
+                  var(--scanline) 0px,
+                  var(--scanline) 1px,
+                  transparent 1px,
+                  transparent 3px
+                );
+    pointer-events: none;
+    z-index: 1;
+    /* Behind main content, above wallpaper */
+  }
+
+  @media (min-width: 769px) {
+    body.theme-dark::before,
+    body:not(.theme-dark)::before {
+      /* On desktop, only cover the area not occupied by sidebar */
+      left: 280px;
+      width: calc(100% - 280px);
+    }
+  }
+
+  /* Page-specific backgrounds */
+  body[data-page="certifications"].theme-dark::after {
+    background-image: url('/assets/wallpaper-certifications.jpg') !important;
+  }
+  
+  body[data-page="certifications"]:not(.theme-dark)::after {
+    background-image: url('/assets/wallpaper-light.png') !important;
+  }
+
+  body[data-page="methodologies"].theme-dark::after {
+    background-image: url('/assets/wallpaper-methodologies.webp') !important;
+  }
+  
+  body[data-page="methodologies"]:not(.theme-dark)::after {
+    background-image: url('/assets/wallpaper-light.png') !important;
+  }
+
+  main {
+    /* Chirpy-style: Simple layout, no complex positioning */
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 2rem;
+    min-height: 100vh;
+    text-align: center;
+    position: relative;
+    /* Main content above overlays but below sidebar */
+    z-index: 10;
+    width: 100%;
+    box-sizing: border-box;
+  }
+
+  @media (max-width: 768px) {
+    main {
+      padding: 1rem;
+      padding-left: 1rem;
+      padding-right: 1rem;
+    }
+  }
+
+  @media (max-width: 480px) {
+    main {
+      padding: 0.75rem;
+    }
+  }
+
+  /* Chirpy-style: Main content offset for sidebar */
+  @media (min-width: 769px) {
+    main {
+      margin-left: 280px;
+      width: calc(100% - 280px);
+      /* Ensure smooth transition */
+      transition: margin-left 0.3s ease;
+    }
+  }
+
+  .menu-toggle-btn {
+    position: fixed;
+    top: 1.5rem;
+    left: 1.5rem;
+    z-index: 1001; /* Higher than menu overlay */
+    background: var(--card-bg, rgba(17, 17, 17, 0.95));
+    border: 1px solid var(--accent-color, #d4b78c);
+    border-radius: 8px;
+    padding: 0.75rem 1rem;
+    color: var(--accent-color, #d4b78c);
+    font-family: 'Poppins', sans-serif;
+    font-size: 0.9rem;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    backdrop-filter: blur(15px);
+    box-shadow: 0 4px 16px var(--shadow-color, rgba(0, 0, 0, 0.4)), 0 0 0 1px rgba(212, 183, 140, 0.2);
+    display: none; /* Hidden by default - only show on mobile */
+    align-items: center;
+    gap: 0.5rem;
+    /* Ensure it's always visible and accessible */
+    will-change: transform, opacity, box-shadow;
+    min-width: 80px;
+    pointer-events: auto;
+    visibility: visible;
+    opacity: 1;
+    user-select: none;
+    -webkit-user-select: none;
+    touch-action: manipulation;
+  }
+
+  .menu-toggle-btn .menu-icon {
+    font-size: 1.2rem;
+    line-height: 1;
+  }
+
+  .menu-toggle-btn .menu-text {
+    font-weight: 500;
+  }
+
+  .menu-toggle-btn:hover {
+    background: rgba(212, 183, 140, 0.15);
+    box-shadow: 0 6px 24px var(--shadow-color, rgba(212, 183, 140, 0.5)), 0 0 0 1px rgba(212, 183, 140, 0.4);
+    transform: translateY(-2px);
+  }
+
+  .menu-toggle-btn:active {
+    transform: translateY(0);
+  }
+
+  /* Make button more prominent when scrolled */
+  .menu-toggle-btn.scrolled {
+    background: rgba(212, 183, 140, 0.25);
+    box-shadow: 0 8px 28px var(--shadow-color, rgba(212, 183, 140, 0.6)), 0 0 0 2px rgba(212, 183, 140, 0.5);
+    border-color: var(--accent-color, #d4b78c);
+  }
+
+  /* Desktop: Hide menu button - sidebar is always visible */
+  @media (min-width: 769px) {
+    .menu-toggle-btn {
+      display: none !important;
+    }
+  }
+
+  /* Mobile/Tablet: Show menu button - sidebar is hidden */
+  @media (max-width: 768px) {
+    .menu-toggle-btn {
+      display: flex !important; /* Show on mobile */
+      top: 1rem;
+      left: 1rem;
+      padding: 0.75rem 1rem;
+      font-size: 0.85rem;
+      /* Ensure it stays on top of everything */
+      z-index: 1001;
+      /* Make it more prominent */
+      box-shadow: 0 4px 20px var(--shadow-color, rgba(212, 183, 140, 0.4)), 0 0 0 1px rgba(212, 183, 140, 0.3);
+    }
+
+    .menu-toggle-btn .menu-text {
+      display: inline;
+    }
+  }
+
+  /* Very small screens - icon only */
+  @media (max-width: 480px) {
+    .menu-toggle-btn {
+      padding: 0.75rem;
+      min-width: 48px;
+      justify-content: center;
+    }
+
+    .menu-toggle-btn .menu-text {
+      display: none;
+    }
+
+    .menu-toggle-btn .menu-icon {
+      font-size: 1.4rem;
+    }
+  }
+</style>
+
+<script>
+  // BULLETPROOF menu toggle button - uses document-level event delegation
+  (function() {
+    // Debounce flag to prevent multiple toggles
+    let isToggling = false;
+    let lastToggleTime = 0;
+    const TOGGLE_DEBOUNCE_MS = 300; // Prevent rapid toggles
+    
+    // Ensure button styling (only on mobile)
+    function ensureButtonStyles() {
+      const menuToggleBtn = document.getElementById('menu-toggle-btn');
+      if (menuToggleBtn) {
+        // Only style if on mobile/tablet
+        if (window.innerWidth < 769) {
+          menuToggleBtn.style.position = 'fixed';
+          menuToggleBtn.style.zIndex = '1001';
+          menuToggleBtn.style.pointerEvents = 'auto';
+          menuToggleBtn.style.cursor = 'pointer';
+          menuToggleBtn.style.display = 'flex';
+        } else {
+          // Hide on desktop
+          menuToggleBtn.style.display = 'none';
+        }
+      }
+    }
+    
+    // Reliable menu toggle function
+    function toggleMenuDirectly() {
+      // Prevent rapid toggles
+      const now = Date.now();
+      if (isToggling || (now - lastToggleTime) < TOGGLE_DEBOUNCE_MS) {
+        return;
+      }
+      
+      isToggling = true;
+      lastToggleTime = now;
+      
+      const menu = document.getElementById('kb-menu');
+      if (!menu) {
+        isToggling = false;
+        // Try to find menu with retries
+        setTimeout(() => {
+          const retryMenu = document.getElementById('kb-menu');
+          if (retryMenu) {
+            toggleMenuDirectly();
+          } else {
+            isToggling = false;
+          }
+        }, 50);
+        return;
+      }
+      
+      const isMobile = window.innerWidth < 769;
+      
+      // On desktop, menu is always visible - no toggle needed
+      if (!isMobile) {
+        isToggling = false;
+        return;
+      }
+      
+      // Mobile toggle
+      const isActive = menu.classList.contains('active');
+      
+      if (isActive) {
+        menu.classList.remove('active');
+        document.body.style.overflow = '';
+      } else {
+        menu.classList.add('active');
+        document.body.style.overflow = 'hidden';
+      }
+      
+      // Reset flag after a short delay
+      setTimeout(() => {
+        isToggling = false;
+      }, TOGGLE_DEBOUNCE_MS);
+    }
+    
+    // Single unified click handler - prevents double-toggles
+    function handleMenuButtonClick(e: Event) {
+      const target = e.target as HTMLElement;
+      const menuToggleBtn = target.closest('#menu-toggle-btn');
+      
+      if (!menuToggleBtn) return;
+      
+      // Prevent multiple handlers from firing
+      e.preventDefault();
+      e.stopPropagation();
+      e.stopImmediatePropagation();
+      
+      // Check debounce
+      const now = Date.now();
+      if (isToggling || (now - lastToggleTime) < TOGGLE_DEBOUNCE_MS) {
+        return;
+      }
+      
+      isToggling = true;
+      lastToggleTime = now;
+      
+      // Try global function first
+      if (typeof (window as any).toggleKBMenu === 'function') {
+        try {
+          (window as any).toggleKBMenu();
+          setTimeout(() => { isToggling = false; }, TOGGLE_DEBOUNCE_MS);
+          return;
+        } catch (err) {
+          // Silently fallback - error handling without console in production
+          if (import.meta.env.DEV) {
+            console.warn('toggleKBMenu error, using fallback:', err);
+          }
+          isToggling = false;
+        }
+      }
+      
+      // Fallback: Direct toggle
+      toggleMenuDirectly();
+    }
+    
+    // Attach ONLY click listener - no mousedown/touchstart to avoid double-toggles
+    document.addEventListener('click', handleMenuButtonClick, true);
+    
+    // Also attach directly to button if it exists (but only as backup)
+    function attachDirectListener() {
+      const menuToggleBtn = document.getElementById('menu-toggle-btn');
+      if (menuToggleBtn) {
+        // Only attach if not already handled by document listener
+        // Use once: true to prevent duplicates, but re-attach on page load
+        const existingHandler = (menuToggleBtn as any).__menuClickHandler;
+        if (existingHandler) {
+          menuToggleBtn.removeEventListener('click', existingHandler, true);
+        }
+        
+        const handler = function(e: Event) {
+          // Let document handler take precedence, but this is backup
+          e.stopPropagation(); // Don't bubble to document
+        };
+        
+        (menuToggleBtn as any).__menuClickHandler = handler;
+        menuToggleBtn.addEventListener('click', handler, { capture: true, once: false });
+        
+        ensureButtonStyles();
+      }
+    }
+    
+    // Initialize immediately
+    ensureButtonStyles();
+    attachDirectListener();
+    
+    // Initialize on DOM ready
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', () => {
+        ensureButtonStyles();
+        attachDirectListener();
+      });
+    }
+    
+    // Initialize on page load
+    window.addEventListener('load', () => {
+      ensureButtonStyles();
+      attachDirectListener();
+    });
+    
+    // Re-initialize on Astro page transitions
+    document.addEventListener('astro:page-load', () => {
+      setTimeout(() => {
+        ensureButtonStyles();
+        attachDirectListener();
+      }, 10);
+    });
+
+    // Update button visibility on window resize
+    let resizeTimeout: ReturnType<typeof setTimeout>;
+    window.addEventListener('resize', () => {
+      clearTimeout(resizeTimeout);
+      resizeTimeout = setTimeout(() => {
+        ensureButtonStyles();
+      }, 100);
+    });
+    
+    // Scroll detection for visual feedback
+    let scrollTimeout: ReturnType<typeof setTimeout> | null = null;
+    const handleScroll = () => {
+      const menuToggleBtn = document.getElementById('menu-toggle-btn');
+      if (!menuToggleBtn) return;
+      
+      const scrollTop = window.pageYOffset || document.documentElement.scrollTop;
+      
+      if (scrollTop > 100) {
+        menuToggleBtn.classList.add('scrolled');
+      } else {
+        menuToggleBtn.classList.remove('scrolled');
+      }
+      
+      if (scrollTimeout) clearTimeout(scrollTimeout);
+      scrollTimeout = setTimeout(() => {
+        if (window.pageYOffset < 100) {
+          menuToggleBtn.classList.remove('scrolled');
+        }
+      }, 1000);
+    };
+    
+    window.addEventListener('scroll', handleScroll, { passive: true });
+    handleScroll();
+    
+    // Ensure button stays visible
+    const observer = new MutationObserver(() => {
+      const menuToggleBtn = document.getElementById('menu-toggle-btn');
+      if (menuToggleBtn) {
+        menuToggleBtn.style.display = '';
+        menuToggleBtn.style.visibility = 'visible';
+        menuToggleBtn.style.opacity = '1';
+        menuToggleBtn.style.pointerEvents = 'auto';
+      }
+    });
+    
+    const menuToggleBtn = document.getElementById('menu-toggle-btn');
+    if (menuToggleBtn) {
+      observer.observe(menuToggleBtn, {
+        attributes: true,
+        attributeFilter: ['style', 'class']
+      });
+    }
+  })();
+
+  // Add copy buttons to code blocks and make code selectable
+  function initCodeBlocks(forceReset = false) {
+    // Find all pre elements that contain code (including astro-code)
+    const preElements = document.querySelectorAll('pre.shiki, pre[class*="language-"], pre.astro-code, pre[class*="astro-code"], pre[class*="nord"]');
+    
+    // Also find any pre element that has a code child (fallback for any missed code blocks)
+    const allPreElements = document.querySelectorAll('pre');
+    const preWithCode = [];
+    allPreElements.forEach((pre) => {
+      if (pre.querySelector('code') && !Array.from(preElements).includes(pre)) {
+        preWithCode.push(pre);
+      }
+    });
+    
+    // Combine both sets
+    const allCodeBlocks = Array.from(preElements).concat(preWithCode);
+    
+    allCodeBlocks.forEach((pre) => {
+      // Make sure the pre element is actually visible and has content
+      if (!pre.offsetParent && (pre as HTMLElement).style.display === 'none') return;
+      
+      // If forcing reset, remove existing button and reset flag
+      if (forceReset) {
+        const existingButton = pre.querySelector('.code-copy-button');
+        if (existingButton) {
+          existingButton.remove();
+        }
+        delete pre.dataset.copyButtonAdded;
+      }
+      
+      const isNewBlock = pre.dataset.copyButtonAdded !== 'true';
+      if (isNewBlock) {
+        pre.dataset.copyButtonAdded = 'true';
+      }
+      
+      // Force visibility and Nier Automata styling
+      pre.style.setProperty('display', 'block', 'important');
+      pre.style.setProperty('visibility', 'visible', 'important');
+      pre.style.setProperty('opacity', '1', 'important');
+      pre.style.setProperty('background', '#ccc7b2', 'important');
+      pre.style.setProperty('color', '#0b0b0b', 'important');
+      pre.style.setProperty('overflow-x', 'visible', 'important');
+      pre.style.setProperty('overflow-wrap', 'break-word', 'important');
+      pre.style.setProperty('word-wrap', 'break-word', 'important');
+      pre.style.setProperty('white-space', 'pre-wrap', 'important');
+      
+      // Make code selectable
+      pre.style.userSelect = 'text';
+      pre.style.webkitUserSelect = 'text';
+      pre.style.mozUserSelect = 'text';
+      pre.style.msUserSelect = 'text';
+      
+      const codeBlock = pre.querySelector('code');
+      if (codeBlock) {
+        codeBlock.style.setProperty('display', 'block', 'important');
+        codeBlock.style.setProperty('visibility', 'visible', 'important');
+        codeBlock.style.setProperty('opacity', '1', 'important');
+        codeBlock.style.setProperty('color', '#0b0b0b', 'important');
+        codeBlock.style.setProperty('background', 'transparent', 'important');
+        codeBlock.style.setProperty('white-space', 'pre-wrap', 'important');
+        codeBlock.style.setProperty('word-wrap', 'break-word', 'important');
+        codeBlock.style.setProperty('overflow-wrap', 'break-word', 'important');
+        codeBlock.style.userSelect = 'text';
+        codeBlock.style.webkitUserSelect = 'text';
+        codeBlock.style.mozUserSelect = 'text';
+        codeBlock.style.msUserSelect = 'text';
+      }
+      
+      // Function to apply colors to all spans in this code block
+      const applySpanColors = () => {
+        // Get ALL spans, not just ones with existing inline styles
+        const allSpans = pre.querySelectorAll('span');
+        allSpans.forEach(span => {
+        const classList = Array.from(span.classList);
+        // Map Shiki token classes to Nier Automata colors
+        if (classList.some(c => c.includes('comment'))) {
+          span.style.setProperty('color', '#8b8680', 'important');
+        } else if (classList.some(c => c.includes('keyword'))) {
+          span.style.setProperty('color', '#8b6b34', 'important');
+        } else if (classList.some(c => c.includes('string'))) {
+          span.style.setProperty('color', '#a68b5b', 'important');
+        } else if (classList.some(c => c.includes('function'))) {
+          span.style.setProperty('color', '#7a6b4f', 'important');
+        } else if (classList.some(c => c.includes('number'))) {
+          span.style.setProperty('color', '#8b6b34', 'important');
+        } else if (classList.some(c => c.includes('operator'))) {
+          span.style.setProperty('color', '#6b5b3f', 'important');
+        } else if (classList.some(c => c.includes('punctuation'))) {
+          span.style.setProperty('color', '#8b8680', 'important');
+        } else if (classList.some(c => c.includes('variable'))) {
+          span.style.setProperty('color', '#7a6b4f', 'important');
+        } else if (classList.some(c => c.includes('property'))) {
+          span.style.setProperty('color', '#8b6b34', 'important');
+        } else {
+            // Default text color - only apply if span has no color set
+            if (!span.style.color || span.style.color === '') {
+          span.style.setProperty('color', '#0b0b0b', 'important');
+        }
+          }
+        });
+      };
+      
+      // Apply colors immediately
+      applySpanColors();
+      
+      // Set up MutationObserver for this specific code block to catch late-rendered spans
+      const spanObserver = new MutationObserver((mutations) => {
+        let shouldReapply = false;
+        mutations.forEach((mutation) => {
+          if (mutation.type === 'childList' && mutation.addedNodes.length > 0) {
+            mutation.addedNodes.forEach((node) => {
+              if (node.nodeType === 1 && (node.tagName === 'SPAN' || (node as Element).querySelector('span'))) {
+                shouldReapply = true;
+              }
+            });
+          }
+          if (mutation.type === 'attributes' && mutation.attributeName === 'style') {
+            shouldReapply = true;
+          }
+        });
+        if (shouldReapply) {
+          requestAnimationFrame(() => {
+            applySpanColors();
+          });
+        }
+      });
+      
+      spanObserver.observe(pre, {
+        childList: true,
+        subtree: true,
+        attributes: true,
+        attributeFilter: ['style', 'class']
+      });
+      
+      // Store observer on element for cleanup if needed
+      (pre as any)._spanObserver = spanObserver;
+      
+      // Create copy button only if it doesn't exist
+      let copyButton = pre.querySelector('.code-copy-button') as HTMLButtonElement;
+      if (!copyButton) {
+        copyButton = document.createElement('button');
+        copyButton.className = 'code-copy-button';
+        copyButton.textContent = 'Copy';
+        copyButton.setAttribute('aria-label', 'Copy code to clipboard');
+        
+        // Extract text content (handling Shiki's structure)
+        const getCodeText = () => {
+          // Try to get text from code element
+          const codeEl = pre.querySelector('code');
+          if (codeEl) {
+            return codeEl.innerText || codeEl.textContent || '';
+          }
+          return pre.innerText || pre.textContent || '';
+        };
+        
+        copyButton.addEventListener('click', async () => {
+          const codeText = getCodeText();
+          
+          try {
+            await navigator.clipboard.writeText(codeText);
+            copyButton.textContent = 'Copied!';
+            copyButton.classList.add('copied');
+            
+            setTimeout(() => {
+              copyButton.textContent = 'Copy';
+              copyButton.classList.remove('copied');
+            }, 2000);
+          } catch (err) {
+            // Fallback for older browsers
+            const textArea = document.createElement('textarea');
+            textArea.value = codeText;
+            textArea.style.position = 'fixed';
+            textArea.style.opacity = '0';
+            document.body.appendChild(textArea);
+            textArea.select();
+            
+            try {
+              document.execCommand('copy');
+              copyButton.textContent = 'Copied!';
+              copyButton.classList.add('copied');
+              
+              setTimeout(() => {
+                copyButton.textContent = 'Copy';
+                copyButton.classList.remove('copied');
+              }, 2000);
+            } catch (fallbackErr) {
+              copyButton.textContent = 'Failed';
+              setTimeout(() => {
+                copyButton.textContent = 'Copy';
+              }, 2000);
+            }
+            
+            document.body.removeChild(textArea);
+          }
+        });
+        
+        // Add button to pre element
+        pre.style.position = 'relative';
+        pre.appendChild(copyButton);
+      }
+    });
+  }
+  
+  // Initialize with multiple strategies to ensure code blocks are styled
+  const initializeWithRetries = () => {
+    // Use requestAnimationFrame for better timing
+    requestAnimationFrame(() => {
+      initCodeBlocks();
+      // Also run after a short delay to catch any late-rendered blocks
+      setTimeout(() => {
+        initCodeBlocks();
+      }, 50);
+      setTimeout(() => {
+        initCodeBlocks();
+      }, 200);
+      setTimeout(() => {
+        initCodeBlocks();
+      }, 500);
+    });
+  };
+  
+  // Initialize on DOM ready
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', () => {
+      initializeWithRetries();
+    });
+  } else {
+    initializeWithRetries();
+  }
+  
+  // Re-initialize for dynamically loaded content and navigation
+  if (typeof window !== 'undefined') {
+    // Use MutationObserver to handle dynamically added code blocks
+    let initTimeout: ReturnType<typeof setTimeout> | null = null;
+    const observer = new MutationObserver(() => {
+      // Debounce to avoid excessive calls
+      if (initTimeout) clearTimeout(initTimeout);
+      initTimeout = setTimeout(() => {
+        requestAnimationFrame(() => {
+        initCodeBlocks();
+        });
+      }, 150);
+    });
+    
+    observer.observe(document.body, {
+      childList: true,
+      subtree: true
+    });
+    
+    // Handle page navigation (back/forward, client-side routing)
+    window.addEventListener('pageshow', (event) => {
+      // Re-initialize after page is shown (handles back/forward cache)
+      // Use multiple timeouts to catch code blocks that render at different times
+      requestAnimationFrame(() => {
+        initCodeBlocks();
+      });
+      setTimeout(() => {
+        initCodeBlocks();
+      }, 100);
+      setTimeout(() => {
+        initCodeBlocks();
+      }, 300);
+      setTimeout(() => {
+        initCodeBlocks();
+      }, 600);
+      setTimeout(() => {
+        initCodeBlocks();
+      }, 1000);
+    });
+    
+    // Handle popstate (back/forward navigation)
+    window.addEventListener('popstate', () => {
+      // Force reset on navigation to ensure buttons are re-added
+      requestAnimationFrame(() => {
+        initCodeBlocks(true);
+      });
+      setTimeout(() => {
+        initCodeBlocks(true);
+      }, 100);
+      setTimeout(() => {
+        initCodeBlocks(true);
+      }, 300);
+    });
+    
+    // Handle Astro view transitions - critical for copy buttons on MD pages
+    document.addEventListener('astro:before-swap', () => {
+      // Reset all copy button flags before content swap
+      document.querySelectorAll('pre[data-copy-button-added="true"]').forEach((pre) => {
+        delete pre.dataset.copyButtonAdded;
+        const button = pre.querySelector('.code-copy-button');
+        if (button) {
+          button.remove();
+        }
+      });
+    });
+    
+    document.addEventListener('astro:after-swap', () => {
+      // Re-initialize code blocks after content swap with force reset
+      requestAnimationFrame(() => {
+        initCodeBlocks(true);
+      });
+      setTimeout(() => {
+        initCodeBlocks(true);
+      }, 50);
+      setTimeout(() => {
+        initCodeBlocks(true);
+      }, 150);
+      setTimeout(() => {
+        initCodeBlocks(true);
+      }, 300);
+      setTimeout(() => {
+        initCodeBlocks(true);
+      }, 600);
+    });
+    
+    document.addEventListener('astro:page-load', () => {
+      // Re-initialize code blocks on page load with force reset
+      requestAnimationFrame(() => {
+        initCodeBlocks(true);
+      });
+      setTimeout(() => {
+        initCodeBlocks(true);
+      }, 50);
+      setTimeout(() => {
+        initCodeBlocks(true);
+      }, 150);
+      setTimeout(() => {
+        initCodeBlocks(true);
+      }, 300);
+      setTimeout(() => {
+        initCodeBlocks(true);
+      }, 600);
+      setTimeout(() => {
+        initCodeBlocks(true);
+      }, 1000);
+    });
+    
+    // Also run periodically for a short time after page load to catch late-rendering code blocks
+    let checkCount = 0;
+    const maxChecks = 8;
+    const checkInterval = setInterval(() => {
+      if (checkCount < maxChecks) {
+        requestAnimationFrame(() => {
+          initCodeBlocks();
+        });
+        checkCount++;
+      } else {
+        clearInterval(checkInterval);
+      }
+    }, 250);
+  }
+
+  // Global cache detection and content validation
+  // This ensures content loads properly even when pages are served from cache
+  (function() {
+    let hasCheckedContent = false;
+    let checkTimeout: ReturnType<typeof setTimeout> | null = null;
+    let reloadAttempts = 0;
+    const MAX_RELOAD_ATTEMPTS = 2; // Prevent infinite reload loops
+    let currentPageType = '';
+    
+    // Get expected page type from URL
+    function getExpectedPageType() {
+      const path = window.location.pathname;
+      if (path === '/' || path === '') return 'home';
+      if (path.startsWith('/certifications')) return 'certifications';
+      if (path.startsWith('/guides')) return 'guides';
+      if (path.startsWith('/methodologies')) return 'methodologies';
+      if (path.startsWith('/support')) return 'support';
+      return 'unknown';
+    }
+    
+    // Get page type from URL path
+    function getPageTypeFromUrl(url) {
+      try {
+        const urlObj = new URL(url, window.location.origin);
+        const path = urlObj.pathname;
+        if (path === '/' || path === '') return 'home';
+        if (path.startsWith('/certifications')) return 'certifications';
+        if (path.startsWith('/guides')) return 'guides';
+        if (path.startsWith('/methodologies')) return 'methodologies';
+        if (path.startsWith('/support')) return 'support';
+        return 'unknown';
+      } catch {
+        return 'unknown';
+      }
+    }
+    
+    // Check if navigating between major sections (different page types)
+    function isMajorSectionChange(fromType: string, toType: string): boolean {
+      // Major sections that should trigger cache invalidation
+      const majorSections = ['certifications', 'guides', 'methodologies'];
+      // If both are major sections and different, it's a major change
+      if (majorSections.includes(fromType) && majorSections.includes(toType) && fromType !== toType) {
+        return true;
+      }
+      // Also handle home ↔ major section changes (could have cache issues)
+      if ((fromType === 'home' && majorSections.includes(toType)) || 
+          (majorSections.includes(fromType) && toType === 'home')) {
+        return true;
+      }
+      return false;
+    }
+    
+    // Force cache invalidation for major section changes
+    function invalidateCacheForSectionChange() {
+      // Clear any cached module data
+      if ('caches' in window && 'delete' in caches) {
+        caches.keys().then(names => {
+          names.forEach(name => {
+            // Only clear cache if it's related to our app
+            if (name.includes('astro') || name.includes('kb')) {
+              caches.delete(name).catch(() => {});
+            }
+          });
+        }).catch(() => {});
+      }
+      
+      // Force reload of scripts by adding cache-busting parameter
+      const scripts = document.querySelectorAll('script[src]');
+      scripts.forEach(script => {
+        const src = (script as HTMLScriptElement).src;
+        if (src && !src.includes('_t=')) {
+          const url = new URL(src, window.location.origin);
+          url.searchParams.set('_t', Date.now().toString());
+          // Note: We can't directly modify script src after load, but this helps with future requests
+        }
+      });
+    }
+    
+    // Simplified: Just check if content exists, don't validate page type
+    // Astro view transitions handle navigation properly
+    function checkPageContentMatches() {
+      const main = document.querySelector('main');
+      if (!main) return false;
+      
+      // Check if main has meaningful content (not just empty)
+      const hasContent = main.children.length > 0 && main.textContent && main.textContent.trim().length > 0;
+      
+      return hasContent;
+    }
+    
+    function checkContentLoaded() {
+      // Check if main content area has content
+      const main = document.querySelector('main');
+      if (!main) return false;
+      
+      // Check if main has meaningful content (not just empty)
+      const hasContent = main.children.length > 0 && main.textContent && main.textContent.trim().length > 0;
+      
+      return hasContent;
+    }
+    
+    function ensureContentLoaded() {
+      if (hasCheckedContent) return;
+      
+      // Clear any pending checks
+      if (checkTimeout) {
+        clearTimeout(checkTimeout);
+        checkTimeout = null;
+      }
+      
+      // Give the page time to render, especially after view transitions
+      // Only check for actual cache issues (bfcache), not normal navigation
+      checkTimeout = setTimeout(() => {
+        const hasContent = checkContentLoaded();
+        
+        // Only reload if content is truly missing AND we're dealing with a cache issue
+        // Don't reload on normal navigation - Astro view transitions handle that
+        if (!hasContent && reloadAttempts < MAX_RELOAD_ATTEMPTS) {
+          // Only reload if this seems like a cache issue (page persisted from cache)
+          // For normal navigation, content should load via view transitions
+          const url = new URL(window.location.href);
+          if (!url.searchParams.has('_t')) {
+            reloadAttempts++;
+            url.searchParams.set('_t', Date.now().toString());
+            window.location.href = url.toString();
+            return; // Don't mark as checked since we're reloading
+          }
+        }
+        hasCheckedContent = true;
+      }, 800); // Increased delay to allow view transitions to complete
+    }
+    
+      // Handle page loaded from cache (bfcache)
+    window.addEventListener('pageshow', (event) => {
+      hasCheckedContent = false;
+      // Reset reload attempts when page is shown (might be from cache)
+      if (event.persisted) {
+        reloadAttempts = 0;
+      }
+      
+      if (event.persisted) {
+        // Page was loaded from cache, check if content is there
+        ensureContentLoaded();
+      } else {
+        // Normal page load, still check after a delay
+        ensureContentLoaded();
+      }
+    });
+    
+    // Initial check on page load
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', () => {
+        ensureContentLoaded();
+      });
+    } else {
+      ensureContentLoaded();
+    }
+    
+    // Track current page type
+    currentPageType = getExpectedPageType();
+    
+    // Handle navigation between major sections with cache invalidation
+    document.addEventListener('astro:before-preparation', (event) => {
+      // Clear the check flag when navigation starts
+      hasCheckedContent = false;
+      
+      // Check if we're navigating to a different major section
+      const targetUrl = (event as any).to?.href || window.location.href;
+      const targetPageType = getPageTypeFromUrl(targetUrl);
+      
+      if (isMajorSectionChange(currentPageType, targetPageType)) {
+        // Invalidate cache when switching between major sections
+        invalidateCacheForSectionChange();
+      }
+    });
+    
+    document.addEventListener('astro:page-load', () => {
+      hasCheckedContent = false;
+      reloadAttempts = 0; // Reset on new page load
+      
+      const newPageType = getExpectedPageType();
+      
+      // If we switched major sections, ensure fresh content
+      if (isMajorSectionChange(currentPageType, newPageType)) {
+        // Force a small delay to ensure view transition completes, then verify content
+        setTimeout(() => {
+          const hasContent = checkContentLoaded();
+          if (!hasContent) {
+            // Content didn't load properly, force a hard reload
+            window.location.reload();
+            return;
+          }
+          // Content loaded, but ensure any cached data is cleared
+          invalidateCacheForSectionChange();
+        }, 100);
+      }
+      
+      currentPageType = newPageType;
+      
+      // Give content time to render after view transition
+      // Only check for actual content issues, not force reloads
+      setTimeout(() => {
+        ensureContentLoaded();
+      }, 500); // Increased delay to allow content to fully render
+    });
+    
+    // Also check when page becomes visible again
+    document.addEventListener('visibilitychange', () => {
+      if (!document.hidden && !hasCheckedContent) {
+        ensureContentLoaded();
+      }
+    });
+    
+    // Intercept navigation clicks to handle major section changes
+    document.addEventListener('click', (event) => {
+      const target = (event.target as HTMLElement).closest('a[href]') as HTMLAnchorElement;
+      if (!target || target.target === '_blank' || target.hasAttribute('external')) return;
+      
+      const href = target.getAttribute('href');
+      if (!href || href.startsWith('#') || href.startsWith('mailto:') || href.startsWith('tel:')) return;
+      
+      try {
+        const targetUrl = new URL(href, window.location.origin);
+        // Only handle same-origin navigation
+        if (targetUrl.origin !== window.location.origin) return;
+        
+        const targetPageType = getPageTypeFromUrl(targetUrl.toString());
+        
+        // If navigating to a different major section, force a full page reload to ensure fresh content
+        if (isMajorSectionChange(currentPageType, targetPageType)) {
+          event.preventDefault();
+          event.stopPropagation();
+          
+          // Add cache-busting parameter and do a full navigation
+          targetUrl.searchParams.set('_nc', Date.now().toString());
+          window.location.href = targetUrl.toString();
+          return;
+        }
+      } catch {
+        // Invalid URL, ignore
+      }
+    }, true);
+  })();
+</script>
+

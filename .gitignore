@@ -1,0 +1,63 @@
+# build output
+dist/
+.output/
+.vercel/
+.netlify/
+
+# generated types
+.astro/
+
+# dependencies
+node_modules/
+
+# logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+*.log
+
+# environment variables
+.env
+.env.local
+.env.production
+.env.development
+.env.*.local
+
+# macOS-specific files
+.DS_Store
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.sublime-*
+
+# OS
+Thumbs.db
+desktop.ini
+
+# Temporary files
+*.tmp
+*.temp
+*.bak
+*.backup
+*.cache
+
+# Personal/Private files
+*.key
+*.pem
+*.p12
+*.pfx
+secrets/
+private/
+*.secret
+
+# Scripts and helper files
+*.ps1
+*.bat
+*.sh
+GITHUB_SETUP.md
+QUICK_START.md

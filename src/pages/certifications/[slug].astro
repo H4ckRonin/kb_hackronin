@@ -1,0 +1,298 @@
+---
+import { getCollection, render } from 'astro:content';
+import readingTime from 'reading-time';
+import BaseLayout from '../../layouts/BaseLayout.astro';
+import Icon from '../../components/Icons.astro';
+import Giscus from '../../components/Giscus.astro';
+import { enrichCertData, generateTitleFromFilename } from '../../utils/content';
+
+export async function getStaticPaths() {
+	const certs = await getCollection('certifications');
+	return certs.map(cert => ({
+		params: { slug: cert.id },
+		props: { cert: enrichCertData(cert) },
+	}));
+}
+
+const { cert } = Astro.props;
+const { title, category, vendor, certification, description } = cert.data;
+const readingTimeEstimate = readingTime(cert.body);
+const wordCount = cert.body.split(/\s+/).length;
+const permalink = `${Astro.site.href}certifications/${cert.id}`;
+const { Content } = await render(cert);
+
+// Generate page title - use enriched title or generate from filename
+const pageTitle = title || generateTitleFromFilename(cert.id.split('/').pop()?.replace('.md', '') || cert.id) || 'Untitled';
+
+// Build breadcrumbs
+const breadcrumbs = [];
+if (category) breadcrumbs.push({ name: category.replace(/-/g, ' '), href: `/certifications?category=${category}` });
+if (vendor) breadcrumbs.push({ name: vendor.replace(/-/g, ' '), href: `/certifications?vendor=${vendor}` });
+if (certification) breadcrumbs.push({ name: certification.replace(/\d+-/g, '').replace(/-/g, ' '), href: `/certifications?certification=${certification}` });
+---
+
+<BaseLayout title={pageTitle} description={description || ''} permalink={permalink} current="certifications">
+  <div class="cert-page-wrapper">
+    {breadcrumbs.length > 0 && (
+      <nav class="breadcrumbs" aria-label="Breadcrumb">
+        <a href="/certifications">Certifications</a>
+        {breadcrumbs.map((crumb, i) => (
+          <>
+            <span class="breadcrumb-separator">/</span>
+            {i === breadcrumbs.length - 1 ? (
+              <span class="breadcrumb-current">{crumb.name}</span>
+            ) : (
+              <a href={crumb.href}>{crumb.name}</a>
+            )}
+          </>
+        ))}
+        <span class="breadcrumb-separator">/</span>
+        <span class="breadcrumb-current">{pageTitle}</span>
+      </nav>
+    )}
+    
+    <div class="cert-meta">
+      <div class="cert-stats">
+        <span>{readingTimeEstimate.text}</span>
+        <span>•</span>
+        <span>{wordCount} words</span>
+      </div>
+      {(category || vendor || certification) && (
+        <div class="cert-taxonomy">
+          {category && (
+            <a href={`/certifications?category=${category}`} class="category-tag">
+              {category.replace(/-/g, ' ')}
+            </a>
+          )}
+          {vendor && (
+            <a href={`/certifications?vendor=${vendor}`} class="vendor-tag">
+              {vendor.replace(/-/g, ' ')}
+            </a>
+          )}
+          {certification && (
+            <a href={`/certifications?certification=${certification}`} class="cert-tag">
+              {certification.replace(/\d+-/g, '').replace(/-/g, ' ')}
+            </a>
+          )}
+        </div>
+      )}
+    </div>
+    
+    <article class="cert-content">
+      <Content />
+    </article>
+    
+    <Giscus
+      repo={import.meta.env.PUBLIC_GISCUS_REPO || "h4ckronin/kb_hackronin"}
+      repoId={import.meta.env.PUBLIC_GISCUS_REPO_ID || ""}
+      category={import.meta.env.PUBLIC_GISCUS_CATEGORY || "General"}
+      categoryId={import.meta.env.PUBLIC_GISCUS_CATEGORY_ID || ""}
+      mapping="pathname"
+      theme="preferred_color_scheme"
+      lang="en"
+      reactionsEnabled={true}
+      emitMetadata={false}
+      inputPosition="bottom"
+      loading="lazy"
+    />
+    
+    <div class="cert-navigation">
+      <a href="/certifications" class="back-link">
+        <Icon name="home" size={16} />
+        <span>Back to Certifications</span>
+      </a>
+    </div>
+  </div>
+</BaseLayout>
+
+<style>
+  .cert-page-wrapper {
+    max-width: 900px;
+    margin: 0 auto;
+    padding: 2rem;
+    position: relative;
+    z-index: 20;
+  }
+
+  .breadcrumbs {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    margin-bottom: 2rem;
+    font-family: 'Poppins', sans-serif;
+    font-size: 0.9rem;
+    flex-wrap: wrap;
+  }
+
+  .breadcrumbs a {
+    color: var(--accent-color, #d4b78c);
+    text-decoration: none;
+    transition: opacity 0.2s;
+  }
+
+  .breadcrumbs a:hover {
+    opacity: 0.8;
+  }
+
+  .breadcrumb-separator {
+    color: var(--text-muted, #999);
+  }
+
+  .breadcrumb-current {
+    color: var(--fg-color, #e6e0d6);
+    font-weight: 600;
+  }
+
+  .cert-meta {
+    margin-bottom: 2rem;
+    padding-bottom: 1.5rem;
+    border-bottom: 1px solid var(--border-color, #222);
+  }
+
+  .cert-stats {
+    color: var(--text-muted, #ccc);
+    font-family: 'Poppins', sans-serif;
+    font-size: 0.85rem;
+    margin-bottom: 1rem;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+  }
+
+  .cert-taxonomy {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+  }
+
+  .category-tag,
+  .vendor-tag,
+  .cert-tag {
+    padding: 0.25rem 0.75rem;
+    border-radius: 4px;
+    text-decoration: none;
+    font-size: 0.85rem;
+    font-family: 'Poppins', sans-serif;
+    transition: all 0.2s ease;
+    text-transform: capitalize;
+  }
+
+  .category-tag {
+    background: rgba(212, 183, 140, 0.2);
+    color: var(--accent-color, #d4b78c);
+    border: 1px solid var(--accent-color, #d4b78c);
+  }
+
+  .category-tag:hover {
+    background: var(--accent-color, #d4b78c);
+    color: var(--bg-color, #0b0b0b);
+  }
+
+  .vendor-tag,
+  .cert-tag {
+    background: rgba(255, 255, 255, 0.05);
+    color: var(--fg-color, #e6e0d6);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+  }
+
+  .vendor-tag:hover,
+  .cert-tag:hover {
+    background: rgba(255, 255, 255, 0.1);
+    border-color: var(--accent-color, #d4b78c);
+  }
+
+  .cert-content {
+    text-align: left;
+    line-height: 1.8;
+  }
+
+  .cert-content h1,
+  .cert-content h2,
+  .cert-content h3 {
+    margin-top: 2rem;
+    margin-bottom: 1rem;
+    font-family: 'Poppins', sans-serif;
+  }
+
+  .cert-content h1 {
+    font-size: 2.5rem;
+    border-bottom: 2px solid var(--border-color, #222);
+    padding-bottom: 0.5rem;
+  }
+
+  .cert-content h2 {
+    font-size: 2rem;
+    color: var(--accent-color, #d4b78c);
+  }
+
+  .cert-content h3 {
+    font-size: 1.5rem;
+  }
+
+  .cert-content code {
+    background: rgba(212, 183, 140, 0.1);
+    padding: 0.2em 0.4em;
+    border-radius: 3px;
+    font-size: 0.95em;
+  }
+
+  .cert-content pre {
+    background: #ccc7b2;
+    border: 1px solid rgba(204, 199, 178, 0.3);
+    border-radius: 8px;
+    padding: 1rem;
+    overflow-x: visible;
+    overflow-wrap: break-word;
+    word-wrap: break-word;
+    white-space: pre-wrap;
+    position: relative;
+    margin: 1.2em 0;
+  }
+
+  .cert-content pre code {
+    background: transparent;
+    padding: 0;
+    color: #0b0b0b;
+    font-size: 0.95em;
+    line-height: 1.6;
+    white-space: pre-wrap;
+    word-wrap: break-word;
+    overflow-wrap: break-word;
+    user-select: text;
+    -webkit-user-select: text;
+    -moz-user-select: text;
+    -ms-user-select: text;
+  }
+
+  .cert-navigation {
+    margin-top: 3rem;
+    padding-top: 2rem;
+    border-top: 1px solid var(--border-color, #222);
+  }
+
+  .back-link {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    color: var(--accent-color, #d4b78c);
+    text-decoration: none;
+    font-family: 'Poppins', sans-serif;
+    transition: all 0.2s;
+  }
+
+  .back-link:hover {
+    opacity: 0.8;
+    transform: translateX(-4px);
+  }
+
+  @media (max-width: 768px) {
+    .cert-page-wrapper {
+      padding: 1rem;
+    }
+
+    .cert-content h1 {
+      font-size: 2rem;
+    }
+  }
+</style>
+

@@ -1,0 +1,298 @@
+---
+// Phase Navigation Component for methodologies
+// Shows phase progress and next/previous phase navigation
+
+import { extractPhases } from '../utils/content';
+
+interface Props {
+  content: string;
+  currentPhaseId?: string;
+}
+
+const { content, currentPhaseId } = Astro.props;
+
+const phases = extractPhases(content);
+
+// Only show if there are phases
+const hasPhases = phases.length > 0;
+---
+
+{hasPhases && (
+  <div class="phase-navigation">
+    <div class="phase-progress">
+      <div class="phase-progress-header">
+        <span class="phase-progress-title">Phase Progress</span>
+        <span class="phase-progress-count">{phases.length} phases</span>
+      </div>
+      <div class="phase-progress-bar">
+        <div class="phase-progress-fill" style={`width: ${(phases.findIndex(p => p.id === currentPhaseId) + 1) / phases.length * 100 || 0}%`}></div>
+      </div>
+    </div>
+    
+    <div class="phase-links">
+      {phases.map((phase, index) => {
+        const isActive = phase.id === currentPhaseId || (!currentPhaseId && index === 0);
+        return (
+          <a 
+            href={`#${phase.id}`}
+            class={`phase-link ${isActive ? 'active' : ''}`}
+            data-phase-number={phase.number}
+          >
+            <span class="phase-number">{phase.number}</span>
+            <span class="phase-title">{phase.title}</span>
+          </a>
+        );
+      })}
+    </div>
+    
+    {phases.length > 1 && (
+      <div class="phase-nav-buttons">
+        {phases.findIndex(p => p.id === currentPhaseId) > 0 && (
+          <a 
+            href={`#${phases[phases.findIndex(p => p.id === currentPhaseId) - 1].id}`}
+            class="phase-nav-btn phase-nav-prev"
+          >
+            ← Previous Phase
+          </a>
+        )}
+        {phases.findIndex(p => p.id === currentPhaseId) < phases.length - 1 && (
+          <a 
+            href={`#${phases[phases.findIndex(p => p.id === currentPhaseId) + 1].id}`}
+            class="phase-nav-btn phase-nav-next"
+          >
+            Next Phase →
+          </a>
+        )}
+      </div>
+    )}
+  </div>
+)}
+
+<style>
+  .phase-navigation {
+    margin: 2rem 0;
+    padding: 1.5rem;
+    background: var(--card-bg, rgba(255, 255, 255, 0.02));
+    border: 1px solid var(--border-color, #222);
+    border-radius: 12px;
+    font-family: 'Poppins', sans-serif;
+  }
+
+  .phase-progress {
+    margin-bottom: 1.5rem;
+  }
+
+  .phase-progress-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 0.75rem;
+  }
+
+  .phase-progress-title {
+    font-size: 0.9rem;
+    font-weight: 600;
+    color: var(--accent-color, #d4b78c);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+  }
+
+  .phase-progress-count {
+    font-size: 0.85rem;
+    color: var(--text-muted, #999);
+  }
+
+  .phase-progress-bar {
+    width: 100%;
+    height: 8px;
+    background: rgba(255, 255, 255, 0.05);
+    border-radius: 4px;
+    overflow: hidden;
+  }
+
+  .phase-progress-fill {
+    height: 100%;
+    background: linear-gradient(90deg, var(--accent-color, #d4b78c), rgba(212, 183, 140, 0.7));
+    border-radius: 4px;
+    transition: width 0.3s ease;
+  }
+
+  .phase-links {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    margin-bottom: 1.5rem;
+  }
+
+  .phase-link {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    padding: 0.75rem 1rem;
+    background: rgba(255, 255, 255, 0.02);
+    border: 1px solid var(--border-color, #222);
+    border-radius: 8px;
+    color: var(--fg-color, #e6e0d6);
+    text-decoration: none;
+    transition: all 0.2s;
+  }
+
+  .phase-link:hover {
+    border-color: var(--accent-color, #d4b78c);
+    background: rgba(212, 183, 140, 0.1);
+    transform: translateX(4px);
+  }
+
+  .phase-link.active {
+    background: rgba(212, 183, 140, 0.2);
+    border-color: var(--accent-color, #d4b78c);
+    color: var(--accent-color, #d4b78c);
+  }
+
+  .phase-number {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 32px;
+    height: 32px;
+    background: rgba(212, 183, 140, 0.15);
+    border-radius: 50%;
+    font-weight: 600;
+    font-size: 0.9rem;
+    flex-shrink: 0;
+  }
+
+  .phase-link.active .phase-number {
+    background: var(--accent-color, #d4b78c);
+    color: var(--bg-color, #0b0b0b);
+  }
+
+  .phase-title {
+    flex: 1;
+    font-size: 0.9rem;
+  }
+
+  .phase-nav-buttons {
+    display: flex;
+    gap: 1rem;
+    justify-content: space-between;
+  }
+
+  .phase-nav-btn {
+    padding: 0.75rem 1.5rem;
+    background: var(--accent-color, #d4b78c);
+    border: none;
+    border-radius: 8px;
+    color: var(--bg-color, #0b0b0b);
+    text-decoration: none;
+    font-weight: 600;
+    font-size: 0.9rem;
+    transition: all 0.2s;
+    font-family: 'Poppins', sans-serif;
+  }
+
+  .phase-nav-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(212, 183, 140, 0.3);
+  }
+
+  @media (max-width: 768px) {
+    .phase-navigation {
+      padding: 1rem;
+    }
+
+    .phase-nav-buttons {
+      flex-direction: column;
+    }
+
+    .phase-nav-btn {
+      width: 100%;
+      text-align: center;
+    }
+  }
+</style>
+
+<script>
+  // Update active phase based on scroll position
+  (function() {
+    function updateActivePhase() {
+      const phaseLinks = document.querySelectorAll('.phase-link');
+      const headings = document.querySelectorAll('h2[id], h3[id]');
+      
+      if (phaseLinks.length === 0 || headings.length === 0) return;
+      
+      const scrollY = window.scrollY;
+      const offset = 150;
+      
+      let activePhaseId = '';
+      let minDistance = Infinity;
+      
+      headings.forEach((heading) => {
+        const rect = heading.getBoundingClientRect();
+        const distance = Math.abs(rect.top - offset);
+        
+        if (rect.top <= offset + 100 && rect.bottom >= 0) {
+          if (distance < minDistance) {
+            minDistance = distance;
+            activePhaseId = heading.id;
+          }
+        }
+      });
+      
+      // Update active state
+      phaseLinks.forEach((link) => {
+        const href = link.getAttribute('href');
+        if (href && href.startsWith('#')) {
+          const phaseId = href.substring(1);
+          if (phaseId === activePhaseId) {
+            link.classList.add('active');
+          } else {
+            link.classList.remove('active');
+          }
+        }
+      });
+      
+      // Update progress bar
+      if (activePhaseId) {
+        const activeLink = Array.from(phaseLinks).find(link => {
+          const href = link.getAttribute('href');
+          return href && href.substring(1) === activePhaseId;
+        });
+        
+        if (activeLink) {
+          const phaseNumber = parseInt(activeLink.getAttribute('data-phase-number') || '0');
+          const totalPhases = phaseLinks.length;
+          const progress = (phaseNumber / totalPhases) * 100;
+          
+          const progressFill = document.querySelector('.phase-progress-fill');
+          if (progressFill) {
+            (progressFill as HTMLElement).style.width = `${progress}%`;
+          }
+        }
+      }
+    }
+    
+    // Run on scroll
+    let rafId: number | null = null;
+    window.addEventListener('scroll', () => {
+      if (rafId !== null) {
+        cancelAnimationFrame(rafId);
+      }
+      rafId = requestAnimationFrame(() => {
+        updateActivePhase();
+        rafId = null;
+      });
+    }, { passive: true });
+    
+    // Run on load
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', updateActivePhase);
+    } else {
+      updateActivePhase();
+    }
+    
+    // Run on Astro page transitions
+    document.addEventListener('astro:page-load', updateActivePhase);
+  })();
+</script>
+

@@ -1,0 +1,132 @@
+---
+export interface Props {
+  /**
+   * GitHub repository in the format "owner/repo"
+   * Example: "h4ckronin/kb_hackronin"
+   */
+  repo: string;
+  /**
+   * GitHub repository ID
+   * You can find this at https://giscus.app
+   */
+  repoId: string;
+  /**
+   * Discussion category name
+   * Example: "Announcements"
+   */
+  category: string;
+  /**
+   * Discussion category ID
+   * You can find this at https://giscus.app
+   */
+  categoryId: string;
+  /**
+   * Mapping between pages and discussions
+   * Options: "pathname" | "url" | "title" | "og:title"
+   * Default: "pathname"
+   */
+  mapping?: string;
+  /**
+   * Theme mode
+   * Options: "light" | "dark" | "preferred_color_scheme"
+   * Default: "preferred_color_scheme"
+   */
+  theme?: string;
+  /**
+   * Language
+   * Default: "en"
+   */
+  lang?: string;
+  /**
+   * Whether to show reactions
+   * Default: true
+   */
+  reactionsEnabled?: boolean;
+  /**
+   * Whether to emit metadata
+   * Default: false
+   */
+  emitMetadata?: boolean;
+  /**
+   * Input position
+   * Options: "top" | "bottom"
+   * Default: "bottom"
+   */
+  inputPosition?: string;
+  /**
+   * Loading strategy
+   * Options: "lazy" | "eager"
+   * Default: "lazy"
+   */
+  loading?: string;
+}
+
+const {
+  repo,
+  repoId,
+  category,
+  categoryId,
+  mapping = "pathname",
+  theme = "preferred_color_scheme",
+  lang = "en",
+  reactionsEnabled = true,
+  emitMetadata = false,
+  inputPosition = "bottom",
+  loading = "lazy",
+} = Astro.props;
+---
+
+<div class="giscus-wrapper">
+  <div class="giscus" id="giscus-comments"></div>
+</div>
+
+<script
+  src="https://giscus.app/client.js"
+  data-repo={repo}
+  data-repo-id={repoId}
+  data-category={category}
+  data-category-id={categoryId}
+  data-mapping={mapping}
+  data-strict="0"
+  data-reactions-enabled={reactionsEnabled ? "1" : "0"}
+  data-emit-metadata={emitMetadata ? "1" : "0"}
+  data-input-position={inputPosition}
+  data-theme={theme}
+  data-lang={lang}
+  data-loading={loading}
+  crossorigin="anonymous"
+  async
+></script>
+
+<style>
+  .giscus-wrapper {
+    margin-top: 3rem;
+    padding-top: 2rem;
+    border-top: 1px solid var(--border-color, #222);
+    position: relative;
+    z-index: 20;
+  }
+
+  .giscus {
+    width: 100%;
+    max-width: 100%;
+  }
+
+  /* Ensure giscus respects theme colors */
+  :global(.giscus) {
+    color-scheme: light dark;
+  }
+
+  /* Dark theme adjustments */
+  [data-theme="dark"] :global(.giscus),
+  body.theme-dark :global(.giscus) {
+    color-scheme: dark;
+  }
+
+  /* Light theme adjustments */
+  [data-theme="light"] :global(.giscus),
+  body[data-theme="light"] :global(.giscus) {
+    color-scheme: light;
+  }
+</style>
+

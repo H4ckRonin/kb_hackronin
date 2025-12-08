@@ -1,0 +1,3003 @@
+---
+import BaseLayout from '../../layouts/BaseLayout.astro';
+import Icon from '../../components/Icons.astro';
+import { getCollection } from 'astro:content';
+import { enrichGuideData, generateTitleFromFilename } from '../../utils/content';
+
+const title = 'Guides - Knowledge Base';
+const description = 'Step-by-step guides, tutorials, and walkthroughs for cybersecurity topics, techniques, and tools';
+const permalink = `${Astro.site.href}guides`;
+
+let allGuides = await getCollection('guides');
+
+// Filter out files that don't have at least 2 parts (category/filename minimum)
+allGuides = allGuides.filter(guide => {
+  const parts = guide.id.split('/').filter(p => p);
+  return parts.length >= 2; // At least category/filename
+});
+
+// Enrich guide data with metadata from paths
+allGuides = allGuides.map(enrichGuideData);
+
+// Group guides by category -> vendor -> guide
+// Handle both 4-part paths (with guide) and 3-part paths (without guide)
+const groupedGuides: Record<string, Record<string, Record<string, typeof allGuides>>> = {};
+
+allGuides.forEach(guide => {
+  const category = guide.data.category?.trim() || '';
+  const vendor = guide.data.vendor?.trim() || '';
+  const guideName = guide.data.guide?.trim() || '';
+  
+  // Require at least category and vendor
+  if (!category || !vendor) return;
+  
+  // For 3-part paths (no guide), use a default name or the filename
+  const finalGuideName = guideName || 'general';
+  
+  if (!groupedGuides[category]) {
+    groupedGuides[category] = {};
+  }
+  if (!groupedGuides[category][vendor]) {
+    groupedGuides[category][vendor] = {};
+  }
+  if (!groupedGuides[category][vendor][finalGuideName]) {
+    groupedGuides[category][vendor][finalGuideName] = [];
+  }
+  
+  groupedGuides[category][vendor][finalGuideName].push(guide);
+});
+
+// Get all unique categories, vendors, and guides for filters
+const allCategories = [...new Set(allGuides.map(c => c.data.category).filter(Boolean))].sort();
+const allVendors = [...new Set(allGuides.map(c => c.data.vendor).filter(Boolean))].sort();
+const allGuideNames = [...new Set(allGuides.map(c => c.data.certification).filter(Boolean))].sort();
+
+// Get URL search params for filtering
+const url = Astro.url;
+const categoryFilter = url.searchParams.get('category') || '';
+const vendorFilter = url.searchParams.get('vendor') || '';
+const guideFilter = url.searchParams.get('certification') || '';
+const searchQuery = url.searchParams.get('search') || '';
+
+// Filter grouped guides based on URL params
+let filteredGroupedGuides = { ...groupedGuides };
+if (categoryFilter) {
+  filteredGroupedGuides = { [categoryFilter]: filteredGroupedGuides[categoryFilter] || {} };
+}
+if (vendorFilter && categoryFilter) {
+  filteredGroupedGuides = {
+    [categoryFilter]: { [vendorFilter]: filteredGroupedGuides[categoryFilter]?.[vendorFilter] || {} }
+  };
+}
+---
+
+<BaseLayout title={title} description={description} permalink={permalink} current="guides">
+  <style>
+    .guides-container {
+      max-width: 1400px;
+      margin: 0 auto;
+      padding: 2rem;
+      position: relative;
+      z-index: 20;
+    }
+
+    .page-header {
+      margin-bottom: 2rem;
+      text-align: center;
+    }
+
+    .page-title {
+      font-size: 2.5rem;
+      font-weight: 700;
+      margin: 0 0 0.5rem;
+      font-family: 'Poppins', sans-serif;
+    }
+
+    .page-description {
+      font-size: 1rem;
+      color: var(--text-muted, #999);
+      max-width: 600px;
+      margin: 0 auto;
+    }
+
+    .search-section {
+      margin-bottom: 2rem;
+    }
+
+    .search-bar {
+      position: relative;
+      margin-bottom: 1rem;
+    }
+
+    .search-icon {
+      position: absolute;
+      left: 1rem;
+      top: 50%;
+      transform: translateY(-50%);
+      color: var(--text-muted, #999);
+      pointer-events: none;
+    }
+
+    .search-input {
+      width: 100%;
+      padding: 0.75rem 1rem 0.75rem 3rem;
+      background: var(--card-bg, rgba(255, 255, 255, 0.02));
+      border: 1px solid var(--border-color, #222);
+      border-radius: 8px;
+      color: var(--fg-color, #e6e0d6);
+      font-size: 1rem;
+      font-family: 'Poppins', sans-serif;
+      transition: all 0.2s;
+    }
+
+    .search-input:focus {
+      outline: none;
+      border-color: var(--accent-color, #d4b78c);
+      box-shadow: 0 0 0 3px rgba(212, 183, 140, 0.1);
+    }
+
+    .filter-toggle-container {
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+      flex-wrap: wrap;
+    }
+
+    .filter-toggle-btn {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      padding: 0.5rem 1rem;
+      background: var(--card-bg, rgba(255, 255, 255, 0.02));
+      border: 1px solid var(--border-color, #222);
+      border-radius: 6px;
+      color: var(--fg-color, #e6e0d6);
+      cursor: pointer;
+      font-family: 'Poppins', sans-serif;
+      font-size: 0.9rem;
+      transition: all 0.2s;
+    }
+
+    .filter-toggle-btn:hover {
+      border-color: var(--accent-color, #d4b78c);
+      background: rgba(212, 183, 140, 0.1);
+    }
+
+    .filter-toggle-btn.active {
+      background: rgba(212, 183, 140, 0.2);
+      border-color: var(--accent-color, #d4b78c);
+    }
+
+    .active-filters {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      flex-wrap: wrap;
+    }
+
+    .active-filter-badge {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      padding: 0.4rem 0.75rem;
+      background: rgba(212, 183, 140, 0.2);
+      border: 1px solid var(--accent-color, #d4b78c);
+      border-radius: 6px;
+      font-size: 0.85rem;
+      font-family: 'Poppins', sans-serif;
+    }
+
+    .remove-filter {
+      background: none;
+      border: none;
+      color: var(--accent-color, #d4b78c);
+      cursor: pointer;
+      font-size: 1.2rem;
+      line-height: 1;
+      padding: 0;
+      width: 18px;
+      height: 18px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: all 0.2s;
+    }
+
+    .remove-filter:hover {
+      transform: scale(1.2);
+    }
+
+    .clear-filters {
+      padding: 0.4rem 0.75rem;
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid var(--border-color, #222);
+      border-radius: 6px;
+      color: var(--fg-color, #e6e0d6);
+      cursor: pointer;
+      font-size: 0.85rem;
+      font-family: 'Poppins', sans-serif;
+      transition: all 0.2s;
+    }
+
+    .clear-filters:hover {
+      background: rgba(255, 255, 255, 0.1);
+      border-color: var(--accent-color, #d4b78c);
+    }
+
+    .filters-row {
+      display: none;
+      flex-direction: column;
+      gap: 1.5rem;
+      margin-top: 1.5rem;
+      padding: 1.5rem;
+      background: var(--card-bg, rgba(255, 255, 255, 0.02));
+      border: 1px solid var(--border-color, #222);
+      border-radius: 8px;
+    }
+
+    .filters-row.show {
+      display: flex;
+    }
+
+    .filter-section {
+      display: flex;
+      flex-direction: column;
+      gap: 0.75rem;
+    }
+
+    .filter-section-title {
+      font-size: 0.9rem;
+      font-weight: 600;
+      color: var(--text-muted, #999);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      font-family: 'Poppins', sans-serif;
+    }
+
+    .filter-chips {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.5rem;
+    }
+
+    .filter-chip {
+      padding: 0.5rem 1rem;
+      background: var(--card-bg, rgba(255, 255, 255, 0.02));
+      border: 1px solid var(--border-color, #222);
+      border-radius: 6px;
+      color: var(--fg-color, #e6e0d6);
+      text-decoration: none;
+      font-size: 0.85rem;
+      font-family: 'Poppins', sans-serif;
+      cursor: pointer;
+      transition: all 0.2s;
+      display: inline-block;
+    }
+
+    .filter-chip:hover {
+      border-color: var(--accent-color, #d4b78c);
+      background: rgba(212, 183, 140, 0.1);
+    }
+
+    .filter-chip.active {
+      background: rgba(212, 183, 140, 0.2);
+      border-color: var(--accent-color, #d4b78c);
+      color: var(--accent-color, #d4b78c);
+    }
+
+    .filter-chip.selected {
+      background: rgba(212, 183, 140, 0.3);
+      border-color: var(--accent-color, #d4b78c);
+      color: var(--accent-color, #d4b78c);
+    }
+
+    .apply-filters-btn {
+      padding: 0.75rem 1.5rem;
+      background: var(--accent-color, #d4b78c);
+      border: none;
+      border-radius: 6px;
+      color: var(--bg-color, #0b0b0b);
+      font-weight: 600;
+      font-family: 'Poppins', sans-serif;
+      cursor: pointer;
+      transition: all 0.2s;
+      align-self: flex-start;
+    }
+
+    .apply-filters-btn:hover:not(:disabled) {
+      transform: translateY(-2px);
+      box-shadow: 0 4px 12px rgba(212, 183, 140, 0.3);
+    }
+
+    .apply-filters-btn:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+
+    .results-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 1.5rem;
+    }
+
+    .results-count {
+      color: var(--text-muted, #999);
+      font-size: 0.9rem;
+      font-family: 'Poppins', sans-serif;
+    }
+
+    .guides-list {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 1.5rem;
+    }
+
+    .category-section {
+      background: var(--card-bg, rgba(255, 255, 255, 0.02));
+      border: 1px solid var(--border-color, #222);
+      border-radius: 12px;
+      overflow: hidden;
+      transition: all 0.3s ease;
+      cursor: pointer;
+    }
+
+    .category-section:hover {
+      border-color: var(--accent-color, #d4b78c);
+      transform: translateY(-2px);
+      box-shadow: 0 4px 12px rgba(212, 183, 140, 0.15);
+    }
+
+
+    .category-header {
+      padding: 1.5rem 1rem;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+      transition: all 0.3s ease;
+      position: relative;
+    }
+
+    .category-header:hover {
+      background: rgba(212, 183, 140, 0.05);
+    }
+
+    .category-icon-wrapper {
+      width: 56px;
+      height: 56px;
+      margin-bottom: 0.75rem;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: rgba(212, 183, 140, 0.1);
+      border-radius: 12px;
+      transition: all 0.3s ease;
+      color: var(--accent-color, #d4b78c);
+    }
+
+    .category-section:hover .category-icon-wrapper {
+      background: rgba(212, 183, 140, 0.2);
+      transform: scale(1.05);
+    }
+
+
+    .category-title {
+      font-size: 1rem;
+      font-weight: 600;
+      margin: 0;
+      font-family: 'Poppins', sans-serif;
+      text-transform: capitalize;
+      color: var(--fg-color, #e6e0d6);
+    }
+
+
+    .category-content {
+      display: none;
+    }
+
+    /* Sidebar Drawer Styles - Professional UX Approach */
+    .category-drawer-overlay {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: rgba(0, 0, 0, 0.4);
+      backdrop-filter: blur(4px);
+      z-index: 1000;
+      opacity: 0;
+      visibility: hidden;
+      transition: opacity 0.3s ease, visibility 0.3s ease;
+    }
+
+    .category-drawer-overlay.active {
+      opacity: 1;
+      visibility: visible;
+    }
+
+    .category-drawer {
+      position: fixed;
+      top: 0;
+      right: 0;
+      bottom: 0;
+      width: 100%;
+      max-width: 800px;
+      background: rgba(15, 15, 15, 0.98) !important;
+      border-left: 1px solid rgba(42, 42, 42, 0.9) !important;
+      box-shadow: -10px 0 40px rgba(0, 0, 0, 0.5);
+      z-index: 1001;
+      display: flex;
+      flex-direction: column;
+      transform: translateX(100%);
+      transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+      overflow: hidden;
+      will-change: transform;
+    }
+
+    .category-drawer-overlay.active .category-drawer {
+      transform: translateX(0);
+    }
+
+    .category-drawer-header {
+      padding: 2rem 2.5rem;
+      border-bottom: 1px solid rgba(42, 42, 42, 0.9) !important;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      background: rgba(212, 183, 140, 0.05) !important;
+      flex-shrink: 0;
+    }
+
+    .category-drawer-title {
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+    }
+
+    .category-drawer-icon {
+      width: 64px;
+      height: 64px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: rgba(212, 183, 140, 0.15);
+      border-radius: 16px;
+      color: var(--accent-color, #d4b78c);
+      flex-shrink: 0;
+    }
+
+    .category-drawer-icon svg {
+      width: 36px;
+      height: 36px;
+    }
+
+    .category-drawer-title-text {
+      font-size: 2rem;
+      font-weight: 600;
+      font-family: 'Poppins', sans-serif;
+      color: var(--fg-color, #e6e0d6);
+      text-transform: capitalize;
+      margin: 0;
+      letter-spacing: -0.02em;
+    }
+
+    .category-drawer-close {
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid var(--border-color, #2a2a2a);
+      color: var(--text-muted, #999);
+      font-size: 1.5rem;
+      cursor: pointer;
+      width: 48px;
+      height: 48px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: 12px;
+      transition: all 0.2s ease;
+      line-height: 1;
+    }
+
+    .category-drawer-close:hover {
+      background: rgba(212, 183, 140, 0.1);
+      border-color: var(--accent-color, #d4b78c);
+      color: var(--accent-color, #d4b78c);
+    }
+
+    .category-drawer-content {
+      padding: 2.5rem;
+      overflow-y: auto;
+      flex: 1;
+      background: rgba(15, 15, 15, 0.98) !important;
+      scrollbar-width: thin;
+      scrollbar-color: rgba(212, 183, 140, 0.3) transparent;
+      contain: layout style paint;
+    }
+
+    .drawer-back-button {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      padding: 0.75rem 1.5rem;
+      margin-bottom: 2rem;
+      background: rgba(255, 255, 255, 0.02) !important;
+      border: 1px solid var(--border-color, #222) !important;
+      border-radius: 12px;
+      color: #e6e0d6 !important;
+      cursor: pointer;
+      font-family: 'Poppins', sans-serif;
+      font-size: 1rem;
+      font-weight: 500;
+      transition: all 0.2s ease;
+    }
+
+    .drawer-back-button:hover {
+      background: rgba(212, 183, 140, 0.1);
+      border-color: var(--accent-color, #d4b78c);
+      color: var(--accent-color, #d4b78c);
+    }
+
+
+    .category-drawer-content::-webkit-scrollbar {
+      width: 6px;
+    }
+
+    .category-drawer-content::-webkit-scrollbar-track {
+      background: transparent;
+    }
+
+    .category-drawer-content::-webkit-scrollbar-thumb {
+      background: rgba(212, 183, 140, 0.3);
+      border-radius: 3px;
+    }
+
+    .category-drawer-content::-webkit-scrollbar-thumb:hover {
+      background: rgba(212, 183, 140, 0.5);
+    }
+
+    /* Best Practice Sidebar Navigation */
+    .drawer-nav-section {
+      margin-bottom: 3rem;
+    }
+
+    .drawer-nav-section:last-child {
+      margin-bottom: 0;
+    }
+
+    .drawer-nav-section-header {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      padding: 0;
+      margin-bottom: 1.5rem;
+      color: var(--accent-color, #d4b78c);
+      font-weight: 600;
+      font-size: 1.25rem;
+      font-family: 'Poppins', sans-serif;
+      text-transform: capitalize;
+      letter-spacing: -0.01em;
+      border-bottom: 2px solid rgba(212, 183, 140, 0.3);
+      padding-bottom: 0.75rem;
+    }
+
+    .drawer-nav-section-icon {
+      width: 20px;
+      height: 20px;
+      flex-shrink: 0;
+      color: var(--accent-color, #d4b78c);
+    }
+
+    .drawer-nav-section-icon svg {
+      width: 20px;
+      height: 20px;
+    }
+
+    .drawer-nav-list {
+      list-style: none !important;
+      padding: 0 !important;
+      margin: 0 !important;
+      display: grid !important;
+      grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)) !important;
+      gap: 1rem !important;
+      row-gap: 1rem !important;
+      column-gap: 1rem !important;
+      width: 100% !important;
+    }
+
+    @media (min-width: 480px) {
+      .drawer-nav-list {
+        grid-template-columns: repeat(2, 1fr) !important;
+      }
+    }
+
+    @media (min-width: 768px) {
+      .drawer-nav-list {
+        grid-template-columns: repeat(3, 1fr) !important;
+        max-width: 100%;
+      }
+    }
+    
+    @media (min-width: 1200px) {
+      .drawer-nav-list {
+        grid-template-columns: repeat(3, 1fr) !important;
+      }
+    }
+
+    .drawer-nav-item {
+      margin: 0 !important;
+      padding: 0 !important;
+      display: block !important;
+      width: 100% !important;
+      list-style: none !important;
+    }
+
+    .drawer-nav-link {
+      display: flex !important;
+      flex-direction: column !important;
+      align-items: center !important;
+      justify-content: center !important;
+      gap: 0;
+      padding: 0;
+      color: #e6e0d6 !important;
+      text-decoration: none;
+      font-size: 0.85rem;
+      font-family: 'Poppins', sans-serif;
+      border-radius: 12px;
+      transition: all 0.2s ease;
+      position: relative;
+      background: rgba(255, 255, 255, 0.02) !important;
+      background-color: rgba(255, 255, 255, 0.02) !important;
+      border: 1px solid var(--border-color, #222) !important;
+      width: 100%;
+      aspect-ratio: 1 / 1 !important;
+      min-height: 120px;
+      text-align: center;
+      cursor: pointer;
+      margin: 0 !important;
+    }
+
+    button.drawer-nav-link,
+    a.drawer-nav-link,
+    .category-drawer .drawer-nav-link,
+    .category-drawer-content .drawer-nav-link,
+    .category-drawer button.drawer-nav-link,
+    .category-drawer-content button.drawer-nav-link,
+    .category-drawer a.drawer-nav-link,
+    .category-drawer-content a.drawer-nav-link {
+      background: rgba(255, 255, 255, 0.02) !important;
+      background-color: rgba(255, 255, 255, 0.02) !important;
+      border: 1px solid var(--border-color, #222) !important;
+      border-color: var(--border-color, #222) !important;
+      color: #e6e0d6 !important;
+      -webkit-appearance: none !important;
+      -moz-appearance: none !important;
+      appearance: none !important;
+    }
+    
+    /* Override any button defaults */
+    button.drawer-nav-link {
+      background: rgba(255, 255, 255, 0.02) !important;
+      background-color: rgba(255, 255, 255, 0.02) !important;
+    }
+
+    .drawer-nav-link:hover {
+      border-color: var(--accent-color, #d4b78c) !important;
+      background: rgba(212, 183, 140, 0.05) !important;
+      transform: translateY(-2px);
+      box-shadow: 0 4px 12px rgba(212, 183, 140, 0.15);
+    }
+
+    .drawer-nav-link-icon {
+      width: 56px;
+      height: 56px;
+      margin-bottom: 0.75rem;
+      flex-shrink: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: rgba(212, 183, 140, 0.1);
+      border-radius: 12px;
+      color: var(--accent-color, #d4b78c);
+      transition: all 0.3s ease;
+    }
+
+    .drawer-nav-link-icon svg {
+      width: 32px;
+      height: 32px;
+      display: block;
+      color: inherit;
+    }
+
+    .drawer-nav-link-icon svg path,
+    .drawer-nav-link-icon svg polyline {
+      stroke: currentColor !important;
+      fill: none !important;
+      color: inherit;
+    }
+
+    .drawer-nav-link:hover .drawer-nav-link-icon {
+      background: rgba(212, 183, 140, 0.2);
+      transform: scale(1.05);
+    }
+
+    .drawer-nav-link-text {
+      font-weight: 600;
+      text-transform: capitalize;
+      font-size: 1.1rem
+      text-align: center;
+      line-height: 1.3;
+      word-break: break-word;
+      color: var(--fg-color, #e6e0d6);
+      margin: 0;
+      padding: 0.75rem;
+      font-family: 'Poppins', sans-serif;
+      letter-spacing: -0.01em;
+      width: 100%;
+      height: 100%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex: 1;
+    }
+
+    .drawer-nav-link-badge {
+      background: #d4b78c;
+      color: #0b0b0b;
+      border-radius: 16px;
+      padding: 0.4rem 0.75rem;
+      font-size: 0.85rem;
+      font-weight: 700;
+      font-family: 'Poppins', sans-serif;
+      min-width: 32px;
+      text-align: center;
+      flex-shrink: 0;
+      position: absolute;
+      top: 0.75rem;
+      right: 0.75rem;
+      box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
+    }
+
+    .vendor-item {
+      background: rgba(255, 255, 255, 0.02);
+      border: 1px solid var(--border-color, #2a2a2a);
+      border-radius: 8px;
+      overflow: hidden;
+      transition: all 0.2s ease;
+      will-change: transform;
+    }
+
+    .vendor-item:hover {
+      border-color: rgba(212, 183, 140, 0.3);
+      background: rgba(212, 183, 140, 0.03);
+    }
+
+    .vendor-header {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      cursor: pointer;
+      user-select: none;
+      padding: 0.875rem 1rem;
+      transition: background 0.2s ease;
+    }
+
+    .vendor-header:hover {
+      background: rgba(212, 183, 140, 0.05);
+    }
+
+    .vendor-header-icon {
+      width: 28px;
+      height: 28px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: rgba(212, 183, 140, 0.15);
+      border-radius: 6px;
+      color: var(--accent-color, #d4b78c);
+      flex-shrink: 0;
+    }
+
+    .vendor-header-title {
+      font-size: 1rem;
+      font-weight: 600;
+      font-family: 'Poppins', sans-serif;
+      color: var(--accent-color, #d4b78c);
+      text-transform: capitalize;
+      flex: 1;
+    }
+
+    .vendor-header-toggle {
+      color: var(--text-muted, #999);
+      font-size: 0.75rem;
+      transition: transform 0.2s ease;
+      flex-shrink: 0;
+    }
+
+    .vendor-item.expanded .vendor-header-toggle {
+      transform: rotate(180deg);
+    }
+
+    .vendor-content {
+      max-height: 0;
+      overflow: hidden;
+      transition: max-height 0.3s ease;
+      border-top: 1px solid var(--border-color, #2a2a2a);
+      contain: layout style paint;
+    }
+
+    .vendor-item.expanded .vendor-content {
+      max-height: 5000px;
+    }
+
+    .guide-item {
+      margin: 0;
+      padding: 0;
+      border-left: none;
+      border-bottom: 1px solid var(--border-color, #2a2a2a);
+      background: rgba(255, 255, 255, 0.01);
+      will-change: transform;
+    }
+
+    .guide-item:last-child {
+      border-bottom: none;
+    }
+
+    .guide-item-header {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      padding: 0.75rem 1rem;
+      cursor: pointer;
+      user-select: none;
+      transition: background 0.2s ease;
+    }
+
+    .guide-item-header:hover {
+      background: rgba(212, 183, 140, 0.05);
+    }
+
+    .guide-item-title {
+      font-size: 0.9rem;
+      font-weight: 600;
+      font-family: 'Poppins', sans-serif;
+      color: var(--fg-color, #e6e0d6);
+      margin: 0;
+      padding: 0;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      flex: 1;
+    }
+
+    .guide-item-toggle {
+      color: var(--text-muted, #999);
+      font-size: 0.75rem;
+      transition: transform 0.2s ease;
+      flex-shrink: 0;
+    }
+
+    .guide-item.expanded .guide-item-toggle {
+      transform: rotate(90deg);
+    }
+
+    .guide-item-content {
+      max-height: 0;
+      overflow: hidden;
+      transition: max-height 0.3s ease;
+      padding: 0 1rem;
+      contain: layout style paint;
+    }
+
+    .guide-item.expanded .guide-item-content {
+      max-height: 5000px;
+      padding: 0.75rem 1rem 1rem;
+    }
+
+    .file-list {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+      gap: 0.5rem;
+      padding: 0;
+    }
+
+    @media (min-width: 1200px) {
+      .file-list {
+        grid-template-columns: repeat(4, 1fr);
+      }
+    }
+
+    @media (min-width: 900px) and (max-width: 1199px) {
+      .file-list {
+        grid-template-columns: repeat(3, 1fr);
+      }
+    }
+
+    .file-item {
+      position: relative;
+    }
+
+    .file-link {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      padding: 0.5rem 0.75rem;
+      background: rgba(255, 255, 255, 0.02);
+      border: 1px solid var(--border-color, #2a2a2a);
+      border-radius: 6px;
+      color: var(--text-muted, #999);
+      text-decoration: none;
+      font-size: 0.85rem;
+      font-family: 'Poppins', sans-serif;
+      transition: all 0.15s ease;
+      position: relative;
+    }
+
+    .file-link::before {
+      content: '';
+      position: absolute;
+      left: 0;
+      top: 0;
+      bottom: 0;
+      width: 2px;
+      background: var(--accent-color, #d4b78c);
+      transform: scaleY(0);
+      transition: transform 0.15s ease;
+    }
+
+    .file-link:hover {
+      background: rgba(212, 183, 140, 0.1);
+      border-color: rgba(212, 183, 140, 0.3);
+      color: var(--accent-color, #d4b78c);
+      transform: translateX(2px);
+    }
+
+    .file-link:hover::before {
+      transform: scaleY(1);
+    }
+
+    .file-link-content {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      flex: 1;
+      min-width: 0;
+    }
+
+    .file-link-icon-wrapper {
+      width: 24px;
+      height: 24px;
+      min-width: 24px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: rgba(212, 183, 140, 0.15);
+      border-radius: 6px;
+      flex-shrink: 0;
+      color: var(--accent-color, #d4b78c);
+      font-weight: 600;
+      font-size: 0.75rem;
+      font-family: 'Poppins', sans-serif;
+    }
+
+    .file-link-text {
+      flex: 1;
+      min-width: 0;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      font-weight: 400;
+    }
+
+    .file-link-arrow {
+      opacity: 0.3;
+      transition: all 0.15s ease;
+      flex-shrink: 0;
+      color: var(--text-muted, #999);
+    }
+
+    .file-link-arrow svg {
+      width: 12px;
+      height: 12px;
+    }
+
+    .file-link:hover .file-link-arrow {
+      opacity: 1;
+      transform: translateX(2px);
+      color: var(--accent-color, #d4b78c);
+    }
+
+    .coming-soon-indicator {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 0.75rem;
+      padding: 1.5rem 1rem;
+      background: rgba(212, 183, 140, 0.05);
+      border: 2px dashed rgba(212, 183, 140, 0.3);
+      border-radius: 8px;
+      text-align: center;
+      min-height: 120px;
+    }
+
+    .coming-soon-icon {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 48px;
+      height: 48px;
+      background: rgba(212, 183, 140, 0.15);
+      border-radius: 50%;
+      color: var(--accent-color, #d4b78c);
+      animation: pulse 2s ease-in-out infinite;
+    }
+
+    @keyframes pulse {
+      0%, 100% {
+        opacity: 1;
+        transform: scale(1);
+      }
+      50% {
+        opacity: 0.7;
+        transform: scale(1.05);
+      }
+    }
+
+    .coming-soon-text {
+      font-size: 0.9rem;
+      font-weight: 600;
+      color: var(--accent-color, #d4b78c);
+      font-family: 'Poppins', sans-serif;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+
+    .file-count-badge {
+      display: inline-flex;
+      align-items: center;
+      padding: 0.25rem 0.5rem;
+      background: rgba(212, 183, 140, 0.15);
+      border-radius: 12px;
+      font-size: 0.75rem;
+      font-weight: 600;
+      color: var(--accent-color, #d4b78c);
+      margin-left: 0.5rem;
+    }
+
+    /* Light Mode Styles for Category Drawer */
+    html[data-theme="light"] .category-drawer-overlay,
+    html:not([data-theme="dark"]) .category-drawer-overlay,
+    body:not(.theme-dark) .category-drawer-overlay {
+      background: rgba(0, 0, 0, 0.3) !important;
+    }
+
+    html[data-theme="light"] .category-drawer,
+    html:not([data-theme="dark"]) .category-drawer,
+    body:not(.theme-dark) .category-drawer {
+      background: #2d2a22 !important;
+      border-left: 1px solid rgba(212, 183, 140, 0.25) !important;
+      box-shadow: -10px 0 40px rgba(0, 0, 0, 0.3);
+    }
+
+    html[data-theme="light"] .category-drawer-header,
+    html:not([data-theme="dark"]) .category-drawer-header,
+    body:not(.theme-dark) .category-drawer-header {
+      background: rgba(212, 183, 140, 0.08) !important;
+      border-bottom: 1px solid rgba(212, 183, 140, 0.25) !important;
+    }
+
+    html[data-theme="light"] .category-drawer-title-text,
+    html:not([data-theme="dark"]) .category-drawer-title-text,
+    body:not(.theme-dark) .category-drawer-title-text {
+      color: #e6e0d6 !important;
+    }
+
+    html[data-theme="light"] .category-drawer-icon,
+    html:not([data-theme="dark"]) .category-drawer-icon,
+    body:not(.theme-dark) .category-drawer-icon {
+      background: rgba(212, 183, 140, 0.2) !important;
+      color: #d4b78c !important;
+    }
+
+    html[data-theme="light"] .category-drawer-close,
+    html:not([data-theme="dark"]) .category-drawer-close,
+    body:not(.theme-dark) .category-drawer-close {
+      background: rgba(255, 255, 255, 0.08) !important;
+      border: 1px solid rgba(212, 183, 140, 0.25) !important;
+      color: #e6e0d6 !important;
+    }
+
+    html[data-theme="light"] .category-drawer-close:hover,
+    html:not([data-theme="dark"]) .category-drawer-close:hover,
+    body:not(.theme-dark) .category-drawer-close:hover {
+      background: rgba(212, 183, 140, 0.15) !important;
+      border-color: #d4b78c !important;
+      color: #d4b78c !important;
+    }
+
+    html[data-theme="light"] .category-drawer-content,
+    html:not([data-theme="dark"]) .category-drawer-content,
+    body:not(.theme-dark) .category-drawer-content {
+      background: #2d2a22 !important;
+    }
+
+    html[data-theme="light"] .drawer-nav-section-header,
+    html:not([data-theme="dark"]) .drawer-nav-section-header,
+    body:not(.theme-dark) .drawer-nav-section-header {
+      color: #d4b78c !important;
+      border-bottom: 2px solid rgba(212, 183, 140, 0.3) !important;
+    }
+
+    html[data-theme="light"] .drawer-nav-section-icon,
+    html:not([data-theme="dark"]) .drawer-nav-section-icon,
+    body:not(.theme-dark) .drawer-nav-section-icon {
+      color: #d4b78c !important;
+    }
+
+    html[data-theme="light"] .drawer-nav-link,
+    html:not([data-theme="dark"]) .drawer-nav-link,
+    body:not(.theme-dark) .drawer-nav-link,
+    html[data-theme="light"] button.drawer-nav-link,
+    html:not([data-theme="dark"]) button.drawer-nav-link,
+    body:not(.theme-dark) button.drawer-nav-link,
+    html[data-theme="light"] a.drawer-nav-link,
+    html:not([data-theme="dark"]) a.drawer-nav-link,
+    body:not(.theme-dark) a.drawer-nav-link {
+      background: rgba(255, 255, 255, 0.05) !important;
+      background-color: rgba(255, 255, 255, 0.05) !important;
+      border: 1px solid rgba(212, 183, 140, 0.25) !important;
+      border-color: rgba(212, 183, 140, 0.25) !important;
+      color: #e6e0d6 !important;
+    }
+
+    html[data-theme="light"] .drawer-nav-link:hover,
+    html:not([data-theme="dark"]) .drawer-nav-link:hover,
+    body:not(.theme-dark) .drawer-nav-link:hover {
+      border-color: #d4b78c !important;
+      background: rgba(212, 183, 140, 0.1) !important;
+    }
+
+    html[data-theme="light"] .drawer-nav-link-text,
+    html:not([data-theme="dark"]) .drawer-nav-link-text,
+    body:not(.theme-dark) .drawer-nav-link-text {
+      color: #e6e0d6 !important;
+    }
+
+    html[data-theme="light"] .drawer-nav-link-icon,
+    html:not([data-theme="dark"]) .drawer-nav-link-icon,
+    body:not(.theme-dark) .drawer-nav-link-icon {
+      background: rgba(212, 183, 140, 0.15) !important;
+      color: #d4b78c !important;
+    }
+
+    html[data-theme="light"] .drawer-nav-link:hover .drawer-nav-link-icon,
+    html:not([data-theme="dark"]) .drawer-nav-link:hover .drawer-nav-link-icon,
+    body:not(.theme-dark) .drawer-nav-link:hover .drawer-nav-link-icon {
+      background: rgba(212, 183, 140, 0.25) !important;
+    }
+
+    html[data-theme="light"] .vendor-item,
+    html:not([data-theme="dark"]) .vendor-item,
+    body:not(.theme-dark) .vendor-item {
+      background: rgba(255, 255, 255, 0.03) !important;
+      border: 1px solid rgba(212, 183, 140, 0.25) !important;
+    }
+
+    html[data-theme="light"] .vendor-item:hover,
+    html:not([data-theme="dark"]) .vendor-item:hover,
+    body:not(.theme-dark) .vendor-item:hover {
+      border-color: rgba(212, 183, 140, 0.4) !important;
+      background: rgba(212, 183, 140, 0.05) !important;
+    }
+
+    html[data-theme="light"] .vendor-header-title,
+    html:not([data-theme="dark"]) .vendor-header-title,
+    body:not(.theme-dark) .vendor-header-title {
+      color: #d4b78c !important;
+    }
+
+    html[data-theme="light"] .vendor-header-icon,
+    html:not([data-theme="dark"]) .vendor-header-icon,
+    body:not(.theme-dark) .vendor-header-icon {
+      background: rgba(212, 183, 140, 0.2) !important;
+      color: #d4b78c !important;
+    }
+
+    html[data-theme="light"] .guide-item-title,
+    html:not([data-theme="dark"]) .guide-item-title,
+    body:not(.theme-dark) .guide-item-title {
+      color: #e6e0d6 !important;
+    }
+
+    html[data-theme="light"] .file-link,
+    html:not([data-theme="dark"]) .file-link,
+    body:not(.theme-dark) .file-link {
+      background: rgba(255, 255, 255, 0.05) !important;
+      border: 1px solid rgba(212, 183, 140, 0.25) !important;
+      color: rgba(230, 224, 214, 0.8) !important;
+    }
+
+    html[data-theme="light"] .file-link:hover,
+    html:not([data-theme="dark"]) .file-link:hover,
+    body:not(.theme-dark) .file-link:hover {
+      background: rgba(212, 183, 140, 0.15) !important;
+      border-color: rgba(212, 183, 140, 0.4) !important;
+      color: #d4b78c !important;
+    }
+
+    html[data-theme="light"] .file-link-icon-wrapper,
+    html:not([data-theme="dark"]) .file-link-icon-wrapper,
+    body:not(.theme-dark) .file-link-icon-wrapper {
+      background: rgba(212, 183, 140, 0.2) !important;
+      color: #d4b78c !important;
+    }
+
+    html[data-theme="light"] .file-link-arrow,
+    html:not([data-theme="dark"]) .file-link-arrow,
+    body:not(.theme-dark) .file-link-arrow {
+      color: rgba(230, 224, 214, 0.5) !important;
+    }
+
+    html[data-theme="light"] .file-link:hover .file-link-arrow,
+    html:not([data-theme="dark"]) .file-link:hover .file-link-arrow,
+    body:not(.theme-dark) .file-link:hover .file-link-arrow {
+      color: #d4b78c !important;
+    }
+
+    html[data-theme="light"] .coming-soon-indicator,
+    html:not([data-theme="dark"]) .coming-soon-indicator,
+    body:not(.theme-dark) .coming-soon-indicator {
+      background: rgba(212, 183, 140, 0.08) !important;
+      border: 2px dashed rgba(212, 183, 140, 0.3) !important;
+    }
+
+    html[data-theme="light"] .coming-soon-icon,
+    html:not([data-theme="dark"]) .coming-soon-icon,
+    body:not(.theme-dark) .coming-soon-icon {
+      background: rgba(212, 183, 140, 0.2) !important;
+      color: #d4b78c !important;
+    }
+
+    html[data-theme="light"] .coming-soon-text,
+    html:not([data-theme="dark"]) .coming-soon-text,
+    body:not(.theme-dark) .coming-soon-text {
+      color: #d4b78c !important;
+    }
+
+    html[data-theme="light"] .file-count-badge,
+    html:not([data-theme="dark"]) .file-count-badge,
+    body:not(.theme-dark) .file-count-badge {
+      background: rgba(212, 183, 140, 0.2) !important;
+      color: #d4b78c !important;
+    }
+
+    @media (max-width: 768px) {
+      .category-modal {
+        max-width: 100%;
+        max-height: 90vh;
+        margin: 1rem;
+      }
+
+      .category-modal-header {
+        padding: 1rem 1.5rem;
+      }
+
+      .category-modal-content {
+        padding: 1.5rem;
+      }
+    }
+
+    .vendor-section {
+      margin-bottom: 1.5rem;
+    }
+
+    .vendor-section:last-child {
+      margin-bottom: 0;
+    }
+
+    .vendor-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 1rem;
+      padding: 0.75rem 1rem;
+      background: rgba(212, 183, 140, 0.05);
+      border-radius: 8px;
+      border: 1px solid var(--border-color, #222);
+      cursor: pointer;
+      transition: all 0.2s ease;
+    }
+
+    .vendor-header:hover {
+      background: rgba(212, 183, 140, 0.1);
+      border-color: var(--accent-color, #d4b78c);
+    }
+
+    .vendor-title {
+      font-size: 1rem;
+      font-weight: 600;
+      margin: 0;
+      font-family: 'Poppins', sans-serif;
+      text-transform: capitalize;
+      color: var(--accent-color, #d4b78c);
+    }
+
+    .vendor-toggle {
+      color: var(--text-muted, #999);
+      transition: transform 0.3s ease;
+      font-size: 0.9rem;
+    }
+
+    .vendor-section.collapsed .vendor-toggle {
+      transform: rotate(-90deg);
+    }
+
+    .vendor-content {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+      gap: 1rem;
+      padding-left: 0.5rem;
+    }
+
+    .vendor-section.collapsed .vendor-content {
+      display: none;
+    }
+
+    .guide-card {
+      background: rgba(255, 255, 255, 0.02);
+      border: 1px solid var(--border-color, #222);
+      border-radius: 12px;
+      padding: 1.75rem 1.5rem;
+      transition: all 0.2s;
+      display: flex;
+      flex-direction: column;
+      min-height: 100%;
+    }
+
+    .guide-card:hover {
+      border-color: var(--accent-color, #d4b78c);
+      background: rgba(212, 183, 140, 0.05);
+      transform: translateY(-2px);
+    }
+
+    .guide-card-title {
+      font-size: 1.25rem;
+      font-weight: 600;
+      margin: 0 0 1rem;
+      font-family: 'Poppins', sans-serif;
+      color: var(--fg-color, #e6e0d6);
+      flex-shrink: 0;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+
+    .guide-files {
+      display: flex;
+      flex-direction: column;
+      gap: 0.75rem;
+      flex-grow: 1;
+    }
+
+    .file-link {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0.75rem 1rem;
+      background: rgba(255, 255, 255, 0.02);
+      border: 1px solid transparent;
+      border-radius: 6px;
+      color: var(--fg-color, #e6e0d6);
+      text-decoration: none;
+      font-size: 0.9rem;
+      transition: all 0.2s;
+    }
+
+    .file-link:hover {
+      background: rgba(212, 183, 140, 0.1);
+      border-color: var(--accent-color, #d4b78c);
+      color: var(--accent-color, #d4b78c);
+    }
+
+    .file-link-icon {
+      opacity: 0.5;
+      transition: opacity 0.2s;
+    }
+
+    .file-link:hover .file-link-icon {
+      opacity: 1;
+    }
+
+    .empty-state {
+      text-align: center;
+      padding: 4rem 2rem;
+      color: var(--text-muted, #999);
+    }
+
+    .empty-state h2 {
+      font-size: 1.5rem;
+      margin: 0 0 0.5rem;
+      font-family: 'Poppins', sans-serif;
+    }
+
+    @media (min-width: 1200px) {
+      .guides-list {
+        grid-template-columns: repeat(3, 1fr);
+      }
+      .vendor-content {
+        grid-template-columns: repeat(2, 1fr);
+      }
+    }
+
+    @media (min-width: 900px) and (max-width: 1199px) {
+      .guides-list {
+        grid-template-columns: repeat(3, 1fr);
+      }
+      .vendor-content {
+        grid-template-columns: repeat(2, 1fr);
+      }
+    }
+
+    @media (max-width: 768px) {
+      .guides-container {
+        padding: 1rem;
+      }
+
+      .page-title {
+        font-size: 2rem;
+      }
+
+      .guides-list {
+        grid-template-columns: 1fr;
+      }
+
+      .vendor-content {
+        grid-template-columns: 1fr;
+      }
+
+      .category-icon-wrapper {
+        width: 48px;
+        height: 48px;
+      }
+
+      .category-drawer {
+        max-width: 100%;
+        width: 100%;
+      }
+
+      .category-drawer-header {
+        padding: 1.25rem 1.5rem;
+      }
+
+      .category-drawer-title-text {
+        font-size: 1.25rem;
+      }
+
+      .category-drawer-icon {
+        width: 40px;
+        height: 40px;
+      }
+
+      .category-drawer-content {
+        padding: 1rem;
+      }
+
+      .category-drawer-close {
+        width: 36px;
+        height: 36px;
+        font-size: 1.25rem;
+        border-radius: 8px;
+      }
+
+      .drawer-back-button {
+        padding: 0.5rem 1rem;
+        font-size: 0.875rem;
+        margin-bottom: 1.5rem;
+        gap: 0.5rem;
+        border-radius: 8px;
+      }
+
+      .file-list {
+        grid-template-columns: 1fr;
+      }
+
+      .file-link {
+        padding: 0.625rem 0.75rem;
+        font-size: 0.875rem;
+      }
+
+      .file-link-icon-wrapper {
+        width: 18px;
+        height: 18px;
+      }
+
+      .guide-item-title {
+        font-size: 0.875rem;
+      }
+
+      .vendor-header {
+        padding: 0.75rem;
+      }
+
+      .vendor-list {
+        grid-template-columns: repeat(auto-fill, minmax(80px, 1fr));
+        gap: 0.75rem;
+      }
+
+      .icon-card {
+        min-height: 100px;
+        padding: 0.75rem;
+      }
+
+      .icon-card-icon {
+        width: 40px;
+        height: 40px;
+      }
+
+      .icon-card-icon svg {
+        width: 20px;
+        height: 20px;
+      }
+
+      .icon-card-title {
+        font-size: 0.7rem;
+      }
+
+      .icon-card-badge {
+        width: 20px;
+        height: 20px;
+        font-size: 0.65rem;
+        top: 0.25rem;
+        right: 0.25rem;
+      }
+
+      .drawer-nav-section {
+        margin-bottom: 1rem;
+      }
+
+      .drawer-nav-section-header {
+        padding: 0.4rem 0.625rem;
+        font-size: 0.8rem;
+        margin-bottom: 0.25rem;
+      }
+
+      .drawer-nav-section-icon {
+        width: 12px;
+        height: 12px;
+      }
+
+      .drawer-nav-section-icon svg {
+        width: 12px;
+        height: 12px;
+      }
+
+      .drawer-nav-list {
+        grid-template-columns: repeat(2, 1fr) !important;
+        gap: 0.5rem;
+      }
+
+      .drawer-nav-link {
+        padding: 0.625rem 0.5rem;
+        gap: 0.375rem;
+        min-height: 70px !important;
+        aspect-ratio: auto !important;
+        flex-direction: column;
+      }
+
+      .drawer-nav-link-icon {
+        width: 32px;
+        height: 32px;
+        margin-bottom: 0.25rem;
+      }
+
+      .drawer-nav-link-icon svg {
+        width: 20px;
+        height: 20px;
+      }
+
+      .drawer-nav-link-text {
+        font-size: 0.75rem;
+        padding: 0.25rem;
+        line-height: 1.2;
+      }
+
+      .drawer-nav-link-badge {
+        padding: 0.2rem 0.5rem;
+        font-size: 0.7rem;
+        min-width: 24px;
+        top: 0.4rem;
+        right: 0.4rem;
+      }
+
+      .vendor-group-header {
+        padding: 0.625rem 0.75rem;
+      }
+
+      .vendor-group-icon {
+        width: 28px;
+        height: 28px;
+      }
+
+      .vendor-group-title {
+        font-size: 0.9rem;
+      }
+    }
+
+    @media (max-width: 480px) {
+      .drawer-nav-list {
+        grid-template-columns: repeat(2, 1fr) !important;
+        gap: 0.375rem;
+      }
+
+      .drawer-nav-link {
+        padding: 0.5rem 0.375rem;
+        gap: 0.25rem;
+        min-height: 60px !important;
+      }
+
+      .drawer-nav-link-icon {
+        width: 28px;
+        height: 28px;
+        margin-bottom: 0.2rem;
+      }
+
+      .drawer-nav-link-icon svg {
+        width: 18px;
+        height: 18px;
+      }
+
+      .drawer-nav-link-text {
+        font-size: 0.7rem;
+        padding: 0.2rem;
+      }
+
+      .drawer-nav-link-badge {
+        padding: 0.15rem 0.4rem;
+        font-size: 0.65rem;
+        min-width: 20px;
+        top: 0.3rem;
+        right: 0.3rem;
+      }
+
+      .category-drawer-close {
+        width: 32px;
+        height: 32px;
+        font-size: 1.1rem;
+      }
+
+      .drawer-back-button {
+        padding: 0.4rem 0.75rem;
+        font-size: 0.8rem;
+        margin-bottom: 1rem;
+      }
+    }
+  </style>
+
+  <div class="guides-container" data-page-type="guides">
+    <div class="page-header">
+      <h1 class="page-title">Guides</h1>
+      <p class="page-description">
+        Comprehensive notes, cheat sheets, and exam preparation guides for cybersecurity guides.
+      </p>
+    </div>
+
+    <!-- Search Section -->
+    <div class="search-section">
+      <div class="search-bar">
+        <span class="search-icon">
+          <Icon name="search" size={20} />
+        </span>
+        <input 
+          type="text" 
+          id="search-input" 
+          class="search-input" 
+          placeholder="Search guides, topics, vendors..."
+          value={searchQuery}
+          autocomplete="off"
+        />
+      </div>
+
+      <div class="filter-toggle-container">
+        <button class="filter-toggle-btn" id="filter-toggle-btn">
+          <Icon name="tags" size={18} />
+          <span>Filters</span>
+        </button>
+        {(categoryFilter || vendorFilter || guideFilter) && (
+          <div class="active-filters" id="active-filters">
+            {categoryFilter && (
+              <div class="active-filter-badge">
+                <span>Category: {categoryFilter.replace(/-/g, ' ')}</span>
+                <button 
+                  class="remove-filter" 
+                  data-remove-category
+                  title="Remove category filter"
+                >
+                  ×
+                </button>
+              </div>
+            )}
+            {vendorFilter && (
+              <div class="active-filter-badge">
+                <span>Vendor: {vendorFilter.replace(/-/g, ' ')}</span>
+                <button 
+                  class="remove-filter" 
+                  data-remove-vendor
+                  title="Remove vendor filter"
+                >
+                  ×
+                </button>
+              </div>
+            )}
+            {guideFilter && (
+              <div class="active-filter-badge">
+                <span>Guide: {guideFilter.replace(/\d+-/g, '').replace(/-/g, ' ')}</span>
+                <button 
+                  class="remove-filter" 
+                  data-remove-guide
+                  title="Remove guide filter"
+                >
+                  ×
+                </button>
+              </div>
+            )}
+            <button class="clear-filters" onclick="window.location.href='/guides'">Clear All</button>
+          </div>
+        )}
+      </div>
+
+      <div class="filters-row" id="filters-row">
+        {allCategories.length > 0 && (
+          <div class="filter-section">
+            <div class="filter-section-title">Categories</div>
+            <div class="filter-chips">
+              <button 
+                type="button"
+                class={`filter-chip filter-category ${!categoryFilter ? 'active' : ''}`}
+                data-filter-type="category"
+                data-filter-value=""
+              >
+                All
+              </button>
+              {allCategories.map(cat => (
+                <button 
+                  type="button"
+                  class={`filter-chip filter-category ${categoryFilter === cat ? 'active' : ''}`}
+                  data-filter-type="category"
+                  data-filter-value={cat}
+                >
+                  {cat.replace(/-/g, ' ')}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {allVendors.length > 0 && (
+          <div class="filter-section">
+            <div class="filter-section-title">Vendors</div>
+            <div class="filter-chips">
+              <button 
+                type="button"
+                class={`filter-chip filter-vendor ${!vendorFilter ? 'active' : ''}`}
+                data-filter-type="vendor"
+                data-filter-value=""
+              >
+                All
+              </button>
+              {allVendors.map(vendor => (
+                <button 
+                  type="button"
+                  class={`filter-chip filter-vendor ${vendorFilter === vendor ? 'active' : ''}`}
+                  data-filter-type="vendor"
+                  data-filter-value={vendor}
+                >
+                  {vendor.replace(/-/g, ' ')}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {allGuideNames.length > 0 && (
+          <div class="filter-section">
+            <div class="filter-section-title">Guides</div>
+            <div class="filter-chips">
+              <button 
+                type="button"
+                class={`filter-chip filter-cert ${!guideFilter ? 'active' : ''}`}
+                data-filter-type="certification"
+                data-filter-value=""
+              >
+                All
+              </button>
+              {allGuideNames.map(guideName => (
+                <button 
+                  type="button"
+                  class={`filter-chip filter-cert ${guideFilter === guideName ? 'active' : ''}`}
+                  data-filter-type="certification"
+                  data-filter-value={guideName}
+                >
+                  {guideName.replace(/\d+-/g, '').replace(/-/g, ' ')}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+
+        <button type="button" class="apply-filters-btn" id="apply-filters-btn">
+          Apply Filters
+        </button>
+      </div>
+    </div>
+
+    <!-- Results Section -->
+    <div class="results-header">
+      <div class="results-count" id="results-count">
+        {Object.values(filteredGroupedGuides).reduce((acc, vendors) => 
+          acc + Object.values(vendors).reduce((acc2, guides) => 
+            acc2 + Object.keys(guides).length, 0), 0)} guides
+      </div>
+    </div>
+
+    <!-- Guides List -->
+    {Object.keys(filteredGroupedGuides).length > 0 ? (
+      <div class="guides-list" id="guides-list">
+        {Object.entries(filteredGroupedGuides).map(([category, vendors]) => {
+          const categoryIconName = category.replace(/\s+/g, '-').toLowerCase();
+          // Serialize the vendors data for JavaScript access
+          const vendorsData = JSON.stringify(
+            Object.entries(vendors).map(([vendor, guides]) => [
+              vendor,
+              Object.entries(guides)
+                .filter(([guideName]) => guideName !== 'general') // Filter out "general" placeholder guides
+                .map(([guideName, files]) => [
+                guideName,
+                files.map(f => ({
+                  title: f.data.title || generateTitleFromFilename(f.id.split('/').pop()?.replace('.md', '') || ''),
+                  href: `/guides/${f.id.replace(/\.md$/, '')}`
+                }))
+              ])
+            ])
+          );
+          return (
+            <div class="category-section" data-category={category} data-vendors={vendorsData}>
+              <div class="category-header" data-category-name={category} data-category-icon={categoryIconName}>
+                <div class="category-icon-wrapper">
+                  <Icon name={categoryIconName} size={32} />
+                </div>
+                <h2 class="category-title">{category.replace(/-/g, ' ')}</h2>
+              </div>
+              <div class="category-content">
+                {Object.entries(vendors).map(([vendor, guides]) => (
+                  <div class="vendor-section" data-vendor={vendor}>
+                    <div class="vendor-header" data-toggle-vendor>
+                      <h3 class="vendor-title">{vendor.replace(/-/g, ' ')}</h3>
+                      <span class="vendor-toggle">▼</span>
+                    </div>
+                    <div class="vendor-content">
+                      {Object.entries(guides)
+                        .filter(([guideName]) => guideName !== 'general') // Filter out "general" placeholder guides
+                        .map(([guideName, files]) => {
+                        const guideTitle = generateTitleFromFilename(guideName);
+                        const searchableText = `${category} ${vendor} ${guideName} ${guideTitle} ${files.map(f => f.data.title || f.id).join(' ')}`.toLowerCase();
+                        
+                        // All guides show as coming soon (greyed out)
+                        const isReadmeOnly = guideName !== 'general'; // Always show as coming soon for non-general guides
+                        
+                        return (
+                          <div class="guide-card" data-searchable={searchableText} data-category={category} data-vendor={vendor} data-guide={guideName}>
+                            <h4 class="guide-card-title">{guideTitle}</h4>
+                            <div class="guide-files">
+                              {isReadmeOnly ? (
+                                <div class="coming-soon-indicator">
+                                  <div class="coming-soon-icon">
+                                    <Icon name="chain" size={24} />
+                                  </div>
+                                  <span class="coming-soon-text">Coming Soon</span>
+                                </div>
+                              ) : (
+                                files.map((file) => {
+                                const fileTitle = file.data.title || generateTitleFromFilename(file.id.split('/').pop()?.replace('.md', '') || '');
+                                const fileHref = `/guides/${file.id.replace(/\.md$/, '')}`;
+                                return (
+                                  <a href={fileHref} class="file-link">
+                                    <span>{fileTitle}</span>
+                                    <Icon name="home" size={14} class="file-link-icon" />
+                                  </a>
+                                );
+                                })
+                              )}
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    ) : (
+      <div class="empty-state" id="no-results">
+        <h2>No guides found</h2>
+        <p>Try adjusting your search or filters</p>
+      </div>
+    )}
+
+    <!-- Category Drawer Sidebar -->
+    <div class="category-drawer-overlay" id="category-drawer-overlay">
+      <div class="category-drawer" id="category-drawer">
+        <div class="category-drawer-header">
+          <div class="category-drawer-title">
+            <div class="category-drawer-icon" id="category-drawer-icon"></div>
+            <h2 class="category-drawer-title-text" id="category-drawer-title-text"></h2>
+          </div>
+          <button class="category-drawer-close" id="category-drawer-close" aria-label="Close">×</button>
+        </div>
+        <div class="category-drawer-content" id="category-drawer-content">
+          <!-- Content will be populated here -->
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // Global state management
+    let selectedFilters = {
+      category: '',
+      vendor: '',
+      guide: ''
+    };
+
+    // Function to get current filters from URL
+    function getCurrentFilters() {
+      const urlParams = new URLSearchParams(window.location.search);
+      return {
+        category: urlParams.get('category') || '',
+        vendor: urlParams.get('vendor') || '',
+        guide: urlParams.get('guide') || '',
+        search: urlParams.get('search') || ''
+      };
+    }
+
+    // Helper function to ensure content is rendered before animation
+    // This is critical for fast scrolling scenarios
+    function ensureContentRendered(element, contentSelector, expandedClass) {
+      if (!element) return;
+      
+      const content = contentSelector ? element.querySelector(contentSelector) : element;
+      if (!content) return;
+      
+      // First, temporarily remove max-height constraint to measure actual height
+      const wasExpanded = element.classList.contains(expandedClass);
+      const originalMaxHeight = content.style.maxHeight;
+      const originalTransition = content.style.transition;
+      
+      // Temporarily disable transition and set max-height to auto to measure
+      content.style.transition = 'none';
+      if (!wasExpanded) {
+        element.classList.add(expandedClass);
+        content.style.maxHeight = 'none';
+      }
+      
+      // Force layout calculation
+      void content.offsetHeight;
+      void content.scrollHeight;
+      
+      // Get the actual height
+      const actualHeight = content.scrollHeight;
+      
+      // Reset to collapsed state temporarily
+      if (!wasExpanded) {
+        element.classList.remove(expandedClass);
+        content.style.maxHeight = '0px';
+      }
+      
+      // Force another layout
+      void content.offsetHeight;
+      
+      // Now animate with explicit height
+      requestAnimationFrame(() => {
+        if (!wasExpanded) {
+          element.classList.add(expandedClass);
+        }
+        content.style.maxHeight = actualHeight + 'px';
+        content.style.transition = originalTransition || '';
+        
+        // Wait for transition to complete, then set to auto
+        requestAnimationFrame(() => {
+          requestAnimationFrame(() => {
+            if (element.classList.contains(expandedClass)) {
+              content.style.maxHeight = '';
+            }
+          });
+        });
+      });
+    }
+
+    // Function to initialize filter state
+    function initializeFilterState() {
+      const current = getCurrentFilters();
+      selectedFilters = {
+        category: current.category,
+        vendor: current.vendor,
+        guide: current.guide
+      };
+      
+      // Initialize filter chips with current state
+      document.querySelectorAll('.filter-chip[data-filter-type]').forEach(chip => {
+        const filterType = chip.dataset.filterType;
+        const filterValue = chip.dataset.filterValue || '';
+        
+        chip.classList.remove('active', 'selected');
+        if (selectedFilters[filterType] === filterValue) {
+          chip.classList.add('active');
+        }
+      });
+      
+      updateApplyButton();
+    }
+
+    // Function to update apply button state
+    function updateApplyButton() {
+      const applyFiltersBtn = document.getElementById('apply-filters-btn');
+      if (!applyFiltersBtn) return;
+      
+      const current = getCurrentFilters();
+      const hasChanges = 
+        selectedFilters.category !== current.category ||
+        selectedFilters.vendor !== current.vendor ||
+        selectedFilters.guide !== current.guide;
+      
+      if (hasChanges) {
+        applyFiltersBtn.disabled = false;
+        applyFiltersBtn.style.opacity = '1';
+      } else {
+        applyFiltersBtn.disabled = true;
+        applyFiltersBtn.style.opacity = '0.5';
+      }
+    }
+
+    // Function to initialize all event listeners
+    function initializeGuidesPage() {
+      const searchInput = document.getElementById('search-input');
+      const guidesList = document.getElementById('guides-list');
+      const resultsCount = document.getElementById('results-count');
+      const noResults = document.getElementById('no-results');
+      const guideCards = Array.from(document.querySelectorAll('.guide-card'));
+      const filterToggleBtn = document.getElementById('filter-toggle-btn');
+      const filtersRow = document.getElementById('filters-row');
+
+      // Get current filters from URL
+      const current = getCurrentFilters();
+      const currentCategoryFilter = current.category;
+      const currentVendorFilter = current.vendor;
+      const currentGuideFilter = current.guide;
+      const currentSearchQuery = current.search;
+
+      // Initialize filter state
+      initializeFilterState();
+
+      // Show filters if there are active filters
+      if (filterToggleBtn && filtersRow) {
+        if (currentCategoryFilter || currentVendorFilter || currentGuideFilter) {
+          filtersRow.classList.add('show');
+          filterToggleBtn.classList.add('active');
+        }
+      }
+
+      // Set search input value
+      if (searchInput) {
+        searchInput.value = currentSearchQuery;
+      }
+
+      // Make category headers show pointer cursor
+      document.querySelectorAll('.category-header').forEach(header => {
+        header.style.cursor = 'pointer';
+      });
+
+      // Apply search after initialization
+      applySearch();
+    }
+
+    // Global search functionality
+    function applySearch() {
+      const searchInput = document.getElementById('search-input');
+      const guidesList = document.getElementById('guides-list');
+      const resultsCount = document.getElementById('results-count');
+      const noResults = document.getElementById('no-results');
+      const guideCards = Array.from(document.querySelectorAll('.guide-card'));
+      const categorySections = document.querySelectorAll('.category-section');
+      
+      if (!searchInput) return;
+      
+      const current = getCurrentFilters();
+      const searchTerm = searchInput.value.toLowerCase().trim();
+      let visibleCount = 0;
+      
+      guideCards.forEach(card => {
+        const searchable = card.dataset.searchable || '';
+        const matchesSearch = !searchTerm || searchable.includes(searchTerm);
+        
+        // Category filter
+        const matchesCategory = !current.category || card.dataset.category === current.category;
+        
+        // Vendor filter
+        const matchesVendor = !current.vendor || card.dataset.vendor === current.vendor;
+        
+        // Guideification filter
+        const matchesGuide = !current.guide || card.dataset.guide === current.guide;
+        
+        const visible = matchesSearch && matchesCategory && matchesVendor && matchesGuide;
+        
+        if (visible) {
+          card.style.display = '';
+          visibleCount++;
+        } else {
+          card.style.display = 'none';
+        }
+      });
+
+      // Show/hide category sections based on visible cards
+      categorySections.forEach(section => {
+        const cardsInCategory = Array.from(section.querySelectorAll('.guide-card'));
+        const visibleCardsInCategory = cardsInCategory.filter(card => card.style.display !== 'none');
+        
+        if (visibleCardsInCategory.length === 0) {
+          section.style.display = 'none';
+        } else {
+          section.style.display = '';
+        }
+      });
+
+      // Update results count
+      if (resultsCount) {
+        resultsCount.textContent = `${visibleCount} guide${visibleCount === 1 ? '' : 's'}`;
+      }
+
+      // Show/hide empty state
+      if (noResults) {
+        if (visibleCount === 0) {
+          noResults.style.display = 'block';
+          if (guidesList) guidesList.style.display = 'none';
+        } else {
+          noResults.style.display = 'none';
+          if (guidesList) guidesList.style.display = '';
+        }
+      }
+    }
+
+    // Document-level event delegation for ALL interactive elements
+    // This ensures everything works even after cache restore
+    document.addEventListener('click', function(e) {
+      // Filter toggle button
+      if (e.target.closest('#filter-toggle-btn')) {
+        const btn = e.target.closest('#filter-toggle-btn');
+        const filtersRow = document.getElementById('filters-row');
+        if (btn && filtersRow) {
+          e.preventDefault();
+          e.stopPropagation();
+          filtersRow.classList.toggle('show');
+          btn.classList.toggle('active');
+        }
+        return;
+      }
+
+      // Filter chips
+      const filterChip = e.target.closest('.filter-chip[data-filter-type]');
+      if (filterChip) {
+        e.preventDefault();
+        e.stopPropagation();
+        const filterType = filterChip.dataset.filterType;
+        const filterValue = filterChip.dataset.filterValue || '';
+        
+        // Update selected filter
+        selectedFilters[filterType] = filterValue;
+        
+        // Update visual state for this filter type
+        document.querySelectorAll(`.filter-chip[data-filter-type="${filterType}"]`).forEach(c => {
+          c.classList.remove('active', 'selected');
+        });
+        
+        // If "All" is selected, remove the filter
+        if (filterValue === '') {
+          selectedFilters[filterType] = '';
+          filterChip.classList.add('active');
+        } else {
+          filterChip.classList.add('selected');
+        }
+        
+        // Update apply button state
+        updateApplyButton();
+        return;
+      }
+
+      // Apply filters button
+      if (e.target.closest('#apply-filters-btn')) {
+        const btn = e.target.closest('#apply-filters-btn');
+        if (btn && !btn.disabled) {
+          e.preventDefault();
+          const current = getCurrentFilters();
+          const params = new URLSearchParams();
+          
+          if (selectedFilters.category) params.set('category', selectedFilters.category);
+          if (selectedFilters.vendor) params.set('vendor', selectedFilters.vendor);
+          if (selectedFilters.guide) params.set('guide', selectedFilters.guide);
+          if (current.search) params.set('search', current.search);
+          
+          const newUrl = params.toString() ? `/guides?${params.toString()}` : '/guides';
+          window.location.href = newUrl;
+        }
+        return;
+      }
+
+      // Remove filter buttons
+      if (e.target.closest('[data-remove-category]')) {
+        e.preventDefault();
+        const params = new URLSearchParams(window.location.search);
+        params.delete('category');
+        const newUrl = params.toString() ? `/guides?${params.toString()}` : '/guides';
+        window.location.href = newUrl;
+        return;
+      }
+
+      if (e.target.closest('[data-remove-vendor]')) {
+        e.preventDefault();
+        const params = new URLSearchParams(window.location.search);
+        params.delete('vendor');
+        const newUrl = params.toString() ? `/guides?${params.toString()}` : '/guides';
+        window.location.href = newUrl;
+        return;
+      }
+
+      if (e.target.closest('[data-remove-guide]')) {
+        e.preventDefault();
+        const params = new URLSearchParams(window.location.search);
+        params.delete('guide');
+        const newUrl = params.toString() ? `/guides?${params.toString()}` : '/guides';
+        window.location.href = newUrl;
+        return;
+      }
+
+      // Vendor toggle (vendor-section)
+      const vendorHeader = e.target.closest('[data-toggle-vendor]');
+      if (vendorHeader) {
+        e.stopPropagation();
+        const section = vendorHeader.closest('.vendor-section');
+        if (section) {
+          const isCurrentlyCollapsed = section.classList.contains('collapsed');
+          
+          if (isCurrentlyCollapsed) {
+            // Expanding - ensure content is rendered before animation
+            section.classList.remove('collapsed');
+            // Force multiple reflows to ensure content is fully rendered
+            requestAnimationFrame(() => {
+              void section.offsetHeight;
+              const content = section.querySelector('.vendor-content');
+              if (content) {
+                void content.offsetHeight;
+                // Force rendering of all child elements
+                const children = content.querySelectorAll('*');
+                children.forEach(child => void child.offsetHeight);
+                // Additional frame to ensure everything is painted
+                requestAnimationFrame(() => {
+                  void content.offsetHeight;
+                  requestAnimationFrame(() => {
+                    void content.offsetHeight;
+                  });
+                });
+              }
+            });
+          } else {
+            // Collapsing - can animate immediately
+            section.classList.add('collapsed');
+          }
+        }
+        return;
+      }
+
+      // Vendor-item toggle (in drawer)
+      const vendorItemHeader = e.target.closest('.vendor-header');
+      if (vendorItemHeader && vendorItemHeader.closest('.vendor-item')) {
+        e.stopPropagation();
+        const vendorItem = vendorItemHeader.closest('.vendor-item');
+        if (vendorItem) {
+          const isCurrentlyExpanded = vendorItem.classList.contains('expanded');
+          
+          if (!isCurrentlyExpanded) {
+            // Expanding - use robust rendering approach
+            ensureContentRendered(vendorItem, '.vendor-content', 'expanded');
+          } else {
+            // Collapsing - can animate immediately
+            vendorItem.classList.remove('expanded');
+          }
+        }
+        return;
+      }
+
+      // Guide-item toggle (in drawer)
+      const guideItemHeader = e.target.closest('.guide-item-header');
+      if (guideItemHeader) {
+        e.stopPropagation();
+        const guideItem = guideItemHeader.closest('.guide-item');
+        if (guideItem) {
+          const isCurrentlyExpanded = guideItem.classList.contains('expanded');
+          
+          if (!isCurrentlyExpanded) {
+            // Expanding - use robust rendering approach
+            ensureContentRendered(guideItem, '.guide-item-content', 'expanded');
+          } else {
+            // Collapsing - can animate immediately
+            guideItem.classList.remove('expanded');
+          }
+        }
+        return;
+      }
+    });
+
+    // Search input handler - use event delegation
+    let searchTimeout;
+    document.addEventListener('input', function(e) {
+      if (e.target.id === 'search-input') {
+        clearTimeout(searchTimeout);
+        searchTimeout = setTimeout(() => {
+          const params = new URLSearchParams(window.location.search);
+          if (e.target.value.trim()) {
+            params.set('search', e.target.value.trim());
+          } else {
+            params.delete('search');
+          }
+          const newUrl = params.toString() ? `/guides?${params.toString()}` : '/guides';
+          window.history.pushState({}, '', newUrl);
+          
+          // Apply search immediately
+          applySearch();
+        }, 300);
+      }
+    });
+
+    // Search input Enter key handler
+    document.addEventListener('keydown', function(e) {
+      if (e.target.id === 'search-input' && e.key === 'Enter') {
+        e.preventDefault();
+        clearTimeout(searchTimeout);
+        const params = new URLSearchParams(window.location.search);
+        if (e.target.value.trim()) {
+          params.set('search', e.target.value.trim());
+        } else {
+          params.delete('search');
+        }
+        const newUrl = params.toString() ? `/guides?${params.toString()}` : '/guides';
+        window.history.pushState({}, '', newUrl);
+        
+        // Apply search immediately
+        applySearch();
+      }
+    });
+
+    // Category drawer functionality
+    function openCategoryDrawer(categoryName, categoryIconName, vendorsData) {
+      const overlay = document.getElementById('category-drawer-overlay');
+      const drawer = document.getElementById('category-drawer');
+      const titleText = document.getElementById('category-drawer-title-text');
+      const icon = document.getElementById('category-drawer-icon');
+      const content = document.getElementById('category-drawer-content');
+      
+      if (!overlay || !drawer || !titleText || !content) return;
+      
+      // Set title and icon
+      titleText.textContent = categoryName.replace(/-/g, ' ');
+      
+      // Set icon - clone from category card
+      const categorySection = document.querySelector(`[data-category="${categoryName}"]`);
+      if (categorySection) {
+        const originalIcon = categorySection.querySelector('.category-icon-wrapper .icon');
+        if (originalIcon) {
+          icon.innerHTML = originalIcon.innerHTML;
+        } else {
+          const iconWrapper = categorySection.querySelector('.category-icon-wrapper');
+          if (iconWrapper) {
+            const svg = iconWrapper.querySelector('svg');
+            if (svg) {
+              icon.innerHTML = svg.outerHTML;
+            }
+          }
+        }
+      }
+      
+      // Store current view state
+      content.dataset.currentView = 'guides';
+      content.dataset.categoryName = categoryName;
+      content.dataset.vendorsData = JSON.stringify(vendorsData);
+      
+      // Build icon grid layout for guides
+      buildGuidesView(content, vendorsData, categoryName);
+      
+      // Force multiple reflows to ensure content is fully rendered before animation
+      // This prevents content from not showing when scrolling fast
+      void content.offsetHeight;
+      void drawer.offsetHeight;
+      
+      // Use multiple requestAnimationFrame calls to ensure DOM is fully updated
+      requestAnimationFrame(() => {
+        // Force reflow of all child elements
+        const allChildren = content.querySelectorAll('*');
+        allChildren.forEach(child => void child.offsetHeight);
+        void content.offsetHeight;
+        void drawer.offsetHeight;
+        
+        // Another frame to ensure everything is painted
+        requestAnimationFrame(() => {
+          void content.offsetHeight;
+          void drawer.offsetHeight;
+          
+          // Now trigger the animation
+          requestAnimationFrame(() => {
+            overlay.classList.add('active');
+            document.body.style.overflow = 'hidden';
+            
+            // One more frame after animation starts to ensure content is visible
+            requestAnimationFrame(() => {
+              void content.offsetHeight;
+              // Force rendering of all visible elements
+              const visibleElements = content.querySelectorAll('.drawer-nav-link, .drawer-nav-section');
+              visibleElements.forEach(el => void el.offsetHeight);
+            });
+          });
+        });
+      });
+    }
+
+    function closeCategoryDrawer() {
+      const overlay = document.getElementById('category-drawer-overlay');
+      if (overlay) {
+        overlay.classList.remove('active');
+        document.body.style.overflow = '';
+      }
+    }
+
+    function buildGuidesView(content, vendorsData, categoryName) {
+      if (!vendorsData || vendorsData.length === 0) {
+        const emptyMsg = document.createElement('div');
+        emptyMsg.style.textAlign = 'center';
+        emptyMsg.style.padding = '3rem 2rem';
+        emptyMsg.style.color = 'var(--text-muted, #999)';
+        emptyMsg.innerHTML = '<p style="margin: 0; font-size: 1rem;">No guides found in this category.</p>';
+        content.innerHTML = '';
+        content.appendChild(emptyMsg);
+        return;
+      }
+      
+      const container = document.createElement('div');
+      
+      vendorsData.forEach(([vendor, guides]) => {
+        if (guides && guides.length > 0) {
+          // Create section
+          const section = document.createElement('div');
+          section.className = 'drawer-nav-section';
+          
+          // Section header with icon
+          const sectionHeader = document.createElement('div');
+          sectionHeader.className = 'drawer-nav-section-header';
+          
+          const headerIcon = document.createElement('span');
+          headerIcon.className = 'drawer-nav-section-icon';
+          headerIcon.innerHTML = `
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path>
+            </svg>
+          `;
+          
+          const headerText = document.createTextNode(vendor.replace(/-/g, ' '));
+          sectionHeader.appendChild(headerIcon);
+          sectionHeader.appendChild(headerText);
+          
+          // Navigation list - use div instead of ul for better grid control
+          const navList = document.createElement('div');
+          navList.className = 'drawer-nav-list';
+          navList.style.display = 'grid';
+          navList.style.gridTemplateColumns = 'repeat(auto-fill, minmax(140px, 1fr))';
+          navList.style.gap = '1rem';
+          navList.style.rowGap = '1rem';
+          navList.style.columnGap = '1rem';
+          navList.style.width = '100%';
+          
+          // Set columns based on screen size
+          if (window.innerWidth >= 768) {
+            navList.style.gridTemplateColumns = 'repeat(3, 1fr)';
+          } else if (window.innerWidth >= 480) {
+            navList.style.gridTemplateColumns = 'repeat(2, 1fr)';
+          }
+          
+          guides
+            .filter(([guideName]) => guideName !== 'general') // Filter out "general" placeholder guides
+            .forEach(([guideName, files]) => {
+            // Check if this guide only has a README file
+            // All guides show as coming soon (greyed out)
+            const isReadmeOnly = guideName !== 'general'; // Always show as coming soon for non-general guides
+            
+            if (isReadmeOnly) {
+              // Create a "coming soon" indicator instead of a clickable link
+              const comingSoonCard = document.createElement('div');
+              comingSoonCard.className = 'drawer-nav-link';
+              comingSoonCard.style.setProperty('background', 'rgba(255, 255, 255, 0.02)', 'important');
+              comingSoonCard.style.setProperty('background-color', 'rgba(255, 255, 255, 0.02)', 'important');
+              comingSoonCard.style.setProperty('border', '2px dashed rgba(212, 183, 140, 0.3)', 'important');
+              comingSoonCard.style.setProperty('color', '#e6e0d6', 'important');
+              comingSoonCard.style.setProperty('aspect-ratio', '1 / 1', 'important');
+              comingSoonCard.style.setProperty('min-height', '120px', 'important');
+              comingSoonCard.style.setProperty('width', '100%', 'important');
+              comingSoonCard.style.setProperty('cursor', 'default', 'important');
+              comingSoonCard.style.setProperty('display', 'flex', 'important');
+              comingSoonCard.style.setProperty('flex-direction', 'column', 'important');
+              comingSoonCard.style.setProperty('align-items', 'center', 'important');
+              comingSoonCard.style.setProperty('justify-content', 'center', 'important');
+              comingSoonCard.style.setProperty('gap', '0.75rem', 'important');
+              comingSoonCard.style.setProperty('padding', '1rem', 'important');
+              
+              // Icon
+              const iconWrapper = document.createElement('div');
+              iconWrapper.style.cssText = 'display: flex; align-items: center; justify-content: center; width: 48px; height: 48px; background: rgba(212, 183, 140, 0.15); border-radius: 50%; color: #d4b78c;';
+              iconWrapper.innerHTML = `<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"></path><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"></path></svg>`;
+              
+              // Text
+              const text = document.createElement('span');
+              text.className = 'drawer-nav-link-text';
+              text.textContent = generateTitleFromFilename(guideName);
+              text.style.setProperty('font-size', '1rem', 'important');
+              text.style.setProperty('text-align', 'center', 'important');
+              text.style.setProperty('margin-bottom', '0.5rem', 'important');
+              
+              // Coming soon label
+              const comingSoonLabel = document.createElement('span');
+              comingSoonLabel.textContent = 'Coming Soon';
+              comingSoonLabel.style.cssText = 'font-size: 0.75rem; font-weight: 600; color: #d4b78c; text-transform: uppercase; letter-spacing: 0.05em; font-family: "Poppins", sans-serif;';
+              
+              comingSoonCard.appendChild(text);
+              comingSoonCard.appendChild(iconWrapper);
+              comingSoonCard.appendChild(comingSoonLabel);
+              
+              navList.appendChild(comingSoonCard);
+            } else {
+            const navLink = document.createElement('button');
+            navLink.className = 'drawer-nav-link';
+            navLink.type = 'button';
+            navLink.style.setProperty('background', 'rgba(255, 255, 255, 0.02)', 'important');
+            navLink.style.setProperty('background-color', 'rgba(255, 255, 255, 0.02)', 'important');
+            navLink.style.setProperty('border', '1px solid var(--border-color, #222)', 'important');
+            navLink.style.setProperty('color', '#e6e0d6', 'important');
+            navLink.style.setProperty('aspect-ratio', '1 / 1', 'important');
+            navLink.style.setProperty('min-height', '120px', 'important');
+            navLink.style.setProperty('width', '100%', 'important');
+            navLink.dataset.guideName = guideName;
+            navLink.dataset.files = JSON.stringify(files);
+            navLink.dataset.vendor = vendor;
+            
+            // Text - capitalize (no icon), centered
+            const text = document.createElement('span');
+            text.className = 'drawer-nav-link-text';
+            text.textContent = generateTitleFromFilename(guideName);
+            text.style.setProperty('font-size', '1.1rem', 'important');
+            text.style.setProperty('display', 'flex', 'important');
+            text.style.setProperty('align-items', 'center', 'important');
+            text.style.setProperty('justify-content', 'center', 'important');
+            text.style.setProperty('text-align', 'center', 'important');
+            text.style.setProperty('width', '100%', 'important');
+            text.style.setProperty('height', '100%', 'important');
+            text.style.setProperty('flex', '1', 'important');
+            
+            navLink.appendChild(text);
+            
+            // Badge
+            if (files && files.length > 0) {
+              const badge = document.createElement('span');
+              badge.className = 'drawer-nav-link-badge';
+              badge.textContent = files.length > 99 ? '99+' : files.length.toString();
+              badge.style.position = 'absolute';
+              badge.style.top = '0.25rem';
+              badge.style.right = '0.25rem';
+              navLink.appendChild(badge);
+            }
+            
+            navList.appendChild(navLink);
+            }
+          });
+          
+          section.appendChild(sectionHeader);
+          section.appendChild(navList);
+          container.appendChild(section);
+        }
+      });
+      
+      content.innerHTML = '';
+      content.appendChild(container);
+      
+      // Force multiple reflows to ensure content is fully rendered
+      // Critical for fast scrolling scenarios
+      void content.offsetHeight;
+      requestAnimationFrame(() => {
+        void content.offsetHeight;
+        // Force rendering of all child elements
+        const allChildren = container.querySelectorAll('*');
+        allChildren.forEach(child => void child.offsetHeight);
+        void container.offsetHeight;
+        requestAnimationFrame(() => {
+          void content.offsetHeight;
+        });
+      });
+    }
+
+    function buildFilesView(content, guideName, files, categoryName, vendor) {
+      // Update drawer header title
+      const titleText = document.getElementById('category-drawer-title-text');
+      if (titleText) {
+        const guideTitle = generateTitleFromFilename(guideName);
+        titleText.textContent = guideTitle;
+      }
+      
+      // Store current state for back navigation
+      content.dataset.currentGuideName = guideName;
+      content.dataset.currentVendor = vendor || '';
+      
+      // Create back button
+      const backButton = document.createElement('button');
+      backButton.className = 'drawer-back-button';
+      backButton.type = 'button';
+      backButton.innerHTML = `
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <polyline points="15 18 9 12 15 6"></polyline>
+        </svg>
+        <span>Back to Guides</span>
+      `;
+      backButton.addEventListener('click', () => {
+        const vendorsDataStr = content.dataset.vendorsData;
+        if (vendorsDataStr) {
+          try {
+            const vendorsData = JSON.parse(vendorsDataStr);
+            buildGuidesView(content, vendorsData, categoryName);
+            content.dataset.currentView = 'guides';
+            // Restore original category title
+            if (titleText) {
+              titleText.textContent = categoryName.replace(/-/g, ' ');
+            }
+            // Force reflow to ensure content is rendered
+            requestAnimationFrame(() => {
+              void content.offsetHeight;
+            });
+          } catch (err) {
+            if (import.meta.env.DEV) {
+              console.error('Error:', err);
+            }
+          }
+        }
+      });
+      
+      // Create file list using best practice navigation
+      const fileList = document.createElement('div');
+      fileList.className = 'drawer-nav-list';
+      fileList.style.display = 'grid';
+      fileList.style.gridTemplateColumns = 'repeat(auto-fill, minmax(140px, 1fr))';
+      fileList.style.gap = '1rem';
+      fileList.style.rowGap = '1rem';
+      fileList.style.columnGap = '1rem';
+      fileList.style.width = '100%';
+      
+      // Set columns based on screen size
+      if (window.innerWidth >= 768) {
+        fileList.style.gridTemplateColumns = 'repeat(3, 1fr)';
+      } else if (window.innerWidth >= 480) {
+        fileList.style.gridTemplateColumns = 'repeat(2, 1fr)';
+      }
+      
+      if (!files || files.length === 0) {
+        const emptyMsg = document.createElement('div');
+        emptyMsg.style.textAlign = 'center';
+        emptyMsg.style.padding = '3rem 2rem';
+        emptyMsg.style.color = 'var(--text-muted, #999)';
+        emptyMsg.innerHTML = '<p style="margin: 0; font-size: 1rem;">No files found for this guide.</p>';
+        content.innerHTML = '';
+        content.appendChild(backButton);
+        content.appendChild(emptyMsg);
+        content.dataset.currentView = 'files';
+        // Force reflow to ensure content is rendered
+        requestAnimationFrame(() => {
+          void content.offsetHeight;
+        });
+        return;
+      }
+      
+      // Sort files by title for consistent ordering
+      const sortedFiles = [...files].sort((a, b) => {
+        const titleA = (a.title || '').toLowerCase();
+        const titleB = (b.title || '').toLowerCase();
+        return titleA.localeCompare(titleB);
+      });
+      
+      sortedFiles.forEach((file, index) => {
+        const fileLink = document.createElement('a');
+        fileLink.className = 'drawer-nav-link';
+        fileLink.style.setProperty('background', 'rgba(255, 255, 255, 0.02)', 'important');
+        fileLink.style.setProperty('background-color', 'rgba(255, 255, 255, 0.02)', 'important');
+        fileLink.style.setProperty('border', '1px solid var(--border-color, #222)', 'important');
+        fileLink.style.setProperty('color', '#e6e0d6', 'important');
+        fileLink.style.setProperty('aspect-ratio', '1 / 1', 'important');
+        fileLink.style.setProperty('min-height', '120px', 'important');
+        fileLink.style.setProperty('width', '100%', 'important');
+        fileLink.href = file.href;
+        
+        // Text - centered in middle of card, no icon
+        const text = document.createElement('span');
+        text.className = 'drawer-nav-link-text';
+        text.textContent = file.title || 'Untitled';
+        text.style.setProperty('font-size', '1.1rem', 'important');
+        text.style.setProperty('display', 'flex', 'important');
+        text.style.setProperty('align-items', 'center', 'important');
+        text.style.setProperty('justify-content', 'center', 'important');
+        text.style.setProperty('text-align', 'center', 'important');
+        text.style.setProperty('width', '100%', 'important');
+        text.style.setProperty('height', '100%', 'important');
+        text.style.setProperty('flex', '1', 'important');
+        
+        // Number badge
+        const badge = document.createElement('span');
+        badge.className = 'drawer-nav-link-badge';
+        badge.textContent = (index + 1).toString();
+        
+        fileLink.appendChild(text);
+        fileLink.appendChild(badge);
+        fileList.appendChild(fileLink);
+      });
+      
+      content.innerHTML = '';
+      content.appendChild(backButton);
+      content.appendChild(fileList);
+      content.dataset.currentView = 'files';
+      
+      // Force multiple reflows to ensure content is fully rendered
+      // Critical for fast scrolling scenarios
+      void content.offsetHeight;
+      requestAnimationFrame(() => {
+        void content.offsetHeight;
+        // Force rendering of all child elements
+        const allChildren = fileList.querySelectorAll('*');
+        allChildren.forEach(child => void child.offsetHeight);
+        void fileList.offsetHeight;
+        requestAnimationFrame(() => {
+          void content.offsetHeight;
+        });
+      });
+    }
+
+    // Document-level event delegation for category clicks - ALWAYS ACTIVE
+    (function() {
+      function handleCategoryClick(e) {
+        // Handle category header clicks - open drawer
+        const categoryHeader = e.target.closest('.category-header');
+        if (categoryHeader && !e.target.closest('.category-drawer')) {
+          e.stopPropagation();
+          
+          const section = categoryHeader.closest('.category-section');
+          if (section) {
+            // Get drawer elements directly
+            let overlay = document.getElementById('category-drawer-overlay');
+            
+            if (!overlay) {
+              setTimeout(() => {
+                overlay = document.getElementById('category-drawer-overlay');
+                if (overlay && typeof openCategoryDrawer === 'function') {
+                  const categoryName = categoryHeader.dataset.categoryName;
+                  const categoryIconName = categoryHeader.dataset.categoryIcon;
+                  const vendorsDataStr = section.dataset.vendors;
+                  if (categoryName && vendorsDataStr) {
+                    try {
+                      const vendorsData = JSON.parse(vendorsDataStr);
+                      openCategoryDrawer(categoryName, categoryIconName, vendorsData);
+                    } catch (err) {
+                      if (import.meta.env.DEV) {
+                        console.error('Error:', err);
+                      }
+                    }
+                  }
+                }
+              }, 100);
+              return;
+            }
+            
+            // Get data from attributes
+            const categoryName = categoryHeader.dataset.categoryName;
+            const categoryIconName = categoryHeader.dataset.categoryIcon;
+            const vendorsDataStr = section.dataset.vendors;
+            
+            if (!categoryName || !vendorsDataStr) {
+              return;
+            }
+            
+            try {
+              const vendorsData = JSON.parse(vendorsDataStr);
+              if (typeof openCategoryDrawer === 'function') {
+                openCategoryDrawer(categoryName, categoryIconName, vendorsData);
+              }
+            } catch (err) {
+              if (import.meta.env.DEV) {
+                console.error('Error parsing vendors data:', err);
+              }
+            }
+            return;
+          }
+        }
+      }
+      
+      // Attach the listener immediately
+      document.addEventListener('click', handleCategoryClick, true);
+    })();
+
+    // Handle guide link clicks in drawer - use event delegation
+    (function() {
+      function handleGuideificationClick(e) {
+        const guideLink = e.target.closest('.drawer-nav-link[data-guide-name]');
+        if (guideLink) {
+          e.preventDefault();
+          e.stopPropagation();
+          
+          const content = document.getElementById('category-drawer-content');
+          if (!content) return;
+          
+          const guideName = guideLink.dataset.guideName;
+          const filesStr = guideLink.dataset.files;
+          const vendor = guideLink.dataset.vendor || '';
+          const categoryName = content.dataset.categoryName;
+          
+          if (guideName && filesStr && categoryName) {
+            try {
+              const files = JSON.parse(filesStr);
+              buildFilesView(content, guideName, files, categoryName, vendor);
+              // Force reflow to ensure content is rendered after building
+              requestAnimationFrame(() => {
+                void content.offsetHeight;
+              });
+            } catch (err) {
+              if (import.meta.env.DEV) {
+                console.error('Error parsing files:', err);
+              }
+            }
+          }
+          return;
+        }
+      }
+      
+      // Attach the listener immediately
+      document.addEventListener('click', handleGuideificationClick, true);
+    })();
+
+    // Close drawer handlers - use document-level delegation
+    (function() {
+      function handleDrawerClose(e) {
+        // Close button click
+        if (e.target.closest('#category-drawer-close')) {
+          e.preventDefault();
+          e.stopPropagation();
+          closeCategoryDrawer();
+          return;
+        }
+        
+        // Overlay click (outside drawer)
+        const overlay = document.getElementById('category-drawer-overlay');
+        if (overlay && e.target === overlay) {
+          closeCategoryDrawer();
+          return;
+        }
+      }
+      
+      // Attach the listener immediately
+      document.addEventListener('click', handleDrawerClose, true);
+    })();
+
+    // Close drawer on ESC key
+    document.addEventListener('keydown', function(e) {
+      if (e.key === 'Escape') {
+        const overlay = document.getElementById('category-drawer-overlay');
+        if (overlay && overlay.classList.contains('active')) {
+          closeCategoryDrawer();
+        }
+      }
+    });
+
+    // Helper function to generate title from filename (for JavaScript)
+    function generateTitleFromFilename(filename) {
+      return filename
+        .replace(/^\d+-/, '')
+        .replace(/-/g, ' ')
+        .replace(/\b\w/g, l => l.toUpperCase());
+    }
+
+    // Initialize on page load
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', function() {
+        initializeGuidesPage();
+      });
+    } else {
+      initializeGuidesPage();
+    }
+
+    // Re-initialize when page is shown (handles back/forward navigation)
+    window.addEventListener('pageshow', function(event) {
+      // Small delay to ensure DOM is ready after cache restore
+      setTimeout(() => {
+        // Re-initialize everything (includes applySearch)
+        initializeGuidesPage();
+        
+        // Ensure category headers have pointer cursor
+        document.querySelectorAll('.category-header').forEach(header => {
+          header.style.cursor = 'pointer';
+        });
+      }, 50);
+    });
+
+    // Re-initialize on Astro page transitions
+    document.addEventListener('astro:page-load', function() {
+      setTimeout(() => {
+        initializeGuidesPage();
+        applySearch();
+      }, 50);
+    });
+
+    // Handle fast scrolling - ensure content is rendered when it comes into view
+    let scrollTimeout;
+    let lastScrollTime = 0;
+    window.addEventListener('scroll', function() {
+      const now = Date.now();
+      const timeSinceLastScroll = now - lastScrollTime;
+      lastScrollTime = now;
+      
+      // Only process if scrolling very fast (less than 16ms between scroll events)
+      // or if it's been a while since last scroll (user stopped scrolling)
+      if (timeSinceLastScroll < 16 || timeSinceLastScroll > 100) {
+        clearTimeout(scrollTimeout);
+        
+        scrollTimeout = setTimeout(() => {
+          // Force rendering of visible expanded content
+          requestAnimationFrame(() => {
+            // Check all expanded vendor-items and guide-items in viewport
+            const expandedVendorItems = document.querySelectorAll('.vendor-item.expanded .vendor-content');
+            const expandedGuideItems = document.querySelectorAll('.guide-item.expanded .guide-item-content');
+            const drawerContent = document.getElementById('category-drawer-content');
+            
+            // Force reflow of visible expanded content
+            expandedVendorItems.forEach(content => {
+              const rect = content.getBoundingClientRect();
+              // Only process if element is in or near viewport
+              if (rect.top < window.innerHeight + 200 && rect.bottom > -200) {
+                void content.offsetHeight;
+                const children = content.querySelectorAll('*');
+                children.forEach(child => void child.offsetHeight);
+              }
+            });
+            
+            expandedGuideItems.forEach(content => {
+              const rect = content.getBoundingClientRect();
+              if (rect.top < window.innerHeight + 200 && rect.bottom > -200) {
+                void content.offsetHeight;
+                const children = content.querySelectorAll('*');
+                children.forEach(child => void child.offsetHeight);
+              }
+            });
+            
+            // Also ensure drawer content is rendered if drawer is open
+            if (drawerContent && document.getElementById('category-drawer-overlay')?.classList.contains('active')) {
+              void drawerContent.offsetHeight;
+              const visibleElements = drawerContent.querySelectorAll('.drawer-nav-link, .drawer-nav-section');
+              visibleElements.forEach(el => {
+                const rect = el.getBoundingClientRect();
+                if (rect.top < window.innerHeight + 200 && rect.bottom > -200) {
+                  void el.offsetHeight;
+                }
+              });
+            }
+          });
+        }, 50);
+      }
+    }, { passive: true });
+  </script>
+</BaseLayout>

@@ -1,0 +1,6 @@
+User-agent: *
+Allow: /
+
+# Sitemap (update when sitemap is added)
+# Sitemap: https://kb.h4ckronin.com/sitemap.xml
+

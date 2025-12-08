@@ -1,0 +1,130 @@
+---
+export interface Props {
+  previous?: { title: string; href: string } | null;
+  next?: { title: string; href: string } | null;
+  collectionType: 'certifications' | 'methodologies';
+}
+
+const { previous, next, collectionType } = Astro.props;
+---
+
+{(previous || next) && (
+  <nav class="post-navigation">
+    {previous ? (
+      <a href={previous.href} class="nav-link nav-prev">
+        <div class="nav-label">Previous</div>
+        <div class="nav-title">{previous.title}</div>
+      </a>
+    ) : (
+      <div class="nav-link nav-prev nav-disabled"></div>
+    )}
+    
+    {next ? (
+      <a href={next.href} class="nav-link nav-next">
+        <div class="nav-label">Next</div>
+        <div class="nav-title">{next.title}</div>
+      </a>
+    ) : (
+      <div class="nav-link nav-next nav-disabled"></div>
+    )}
+  </nav>
+)}
+
+<style>
+  .post-navigation {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1.5rem;
+    margin-top: 3rem;
+    padding-top: 2rem;
+    border-top: 1px solid var(--border-color, #222);
+  }
+
+  .nav-link {
+    display: block;
+    padding: 1.25rem 1.5rem;
+    background: var(--card-bg, rgba(17, 17, 17, 0.85));
+    border: 1px solid var(--border-color, #222);
+    border-radius: 8px;
+    text-decoration: none;
+    color: var(--fg-color, #e6e0d6);
+    transition: all 0.3s ease;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .nav-link::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 2px;
+    background: var(--accent-color, #d4b78c);
+    transform: scaleX(0);
+    transition: transform 0.3s ease;
+  }
+
+  .nav-link:hover {
+    border-color: var(--accent-color, #d4b78c);
+    background: rgba(212, 183, 140, 0.05);
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(212, 183, 140, 0.15);
+  }
+
+  .nav-link:hover::before {
+    transform: scaleX(1);
+  }
+
+  .nav-prev {
+    text-align: left;
+  }
+
+  .nav-next {
+    text-align: right;
+  }
+
+  .nav-disabled {
+    opacity: 0.3;
+    cursor: not-allowed;
+    pointer-events: none;
+  }
+
+  .nav-label {
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--text-muted, rgba(230, 224, 214, 0.6));
+    margin-bottom: 0.5rem;
+    font-family: 'Poppins', sans-serif;
+    font-weight: 600;
+  }
+
+  .nav-link:hover .nav-label {
+    color: var(--accent-color, #d4b78c);
+  }
+
+  .nav-title {
+    font-size: 0.95rem;
+    font-weight: 600;
+    line-height: 1.4;
+    font-family: 'Poppins', sans-serif;
+    color: var(--fg-color, #e6e0d6);
+  }
+
+  .nav-link:hover .nav-title {
+    color: var(--accent-color, #d4b78c);
+  }
+
+  @media (max-width: 768px) {
+    .post-navigation {
+      grid-template-columns: 1fr;
+      gap: 1rem;
+    }
+
+    .nav-next {
+      text-align: left;
+    }
+  }
+</style>
+
