@@ -8,6 +8,7 @@ import PostNavigation from '../../components/PostNavigation.astro';
 import FurtherReading from '../../components/FurtherReading.astro';
 import Giscus from '../../components/Giscus.astro';
 import { enrichGuideData, generateTitleFromFilename } from '../../utils/content';
+import { withBase } from '../../utils/paths';
 
 export async function getStaticPaths() {
 	const guides = await getCollection('guides');
@@ -106,16 +107,16 @@ const pageTitle = title || generateTitleFromFilename(originalId.split('/').pop()
 
 // Build breadcrumbs
 const breadcrumbs = [];
-if (category) breadcrumbs.push({ name: category.replace(/-/g, ' '), href: `/certifications?category=${category}` });
-if (vendor) breadcrumbs.push({ name: vendor.replace(/-/g, ' '), href: `/certifications?vendor=${vendor}` });
-if (certification) breadcrumbs.push({ name: certification.replace(/\d+-/g, '').replace(/-/g, ' '), href: `/certifications?certification=${certification}` });
+if (category) breadcrumbs.push({ name: category.replace(/-/g, ' '), href: withBase(`/guides?category=${category}`) });
+if (vendor) breadcrumbs.push({ name: vendor.replace(/-/g, ' '), href: withBase(`/guides?vendor=${vendor}`) });
+if (certification) breadcrumbs.push({ name: certification.replace(/\d+-/g, '').replace(/-/g, ' '), href: withBase(`/guides?certification=${certification}`) });
 ---
 
 <BaseLayout title={pageTitle} description={description || ''} permalink={permalink} current="certifications">
   <div class="guide-page-wrapper">
     {breadcrumbs.length > 0 && (
       <nav class="breadcrumbs" aria-label="Breadcrumb">
-        <a href="/certifications">Guides</a>
+        <a href={withBase('/guides')}>Guides</a>
         {breadcrumbs.map((crumb, i) => (
           <>
             <span class="breadcrumb-separator">/</span>
@@ -140,17 +141,17 @@ if (certification) breadcrumbs.push({ name: certification.replace(/\d+-/g, '').r
       {(category || vendor || certification) && (
         <div class="guide-taxonomy">
           {category && (
-            <a href={`/certifications?category=${category}`} class="category-tag">
+            <a href={withBase(`/guides?category=${category}`)} class="category-tag">
               {category.replace(/-/g, ' ')}
             </a>
           )}
           {vendor && (
-            <a href={`/certifications?vendor=${vendor}`} class="vendor-tag">
+            <a href={withBase(`/guides?vendor=${vendor}`)} class="vendor-tag">
               {vendor.replace(/-/g, ' ')}
             </a>
           )}
           {certification && (
-            <a href={`/certifications?certification=${certification}`} class="guide-tag">
+            <a href={withBase(`/guides?certification=${certification}`)} class="guide-tag">
               {certification.replace(/\d+-/g, '').replace(/-/g, ' ')}
             </a>
           )}

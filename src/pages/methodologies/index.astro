@@ -3,6 +3,9 @@ import BaseLayout from '../../layouts/BaseLayout.astro';
 import Icon from '../../components/Icons.astro';
 import { getCollection } from 'astro:content';
 import { generateTitleFromFilename } from '../../utils/content';
+import { withBase } from '../../utils/paths';
+
+const baseUrl = import.meta.env.BASE_URL || '/';
 
 const title = 'Methodologies - Knowledge Base';
 const description = 'Penetration testing methodologies and structured approaches';
@@ -1080,7 +1083,7 @@ if (categoryFilter) {
                 </button>
               </div>
             )}
-            <button class="clear-filters" onclick="window.location.href='/methodologies'">Clear All</button>
+            <button class="clear-filters" onclick={`window.location.href='${withBase('/methodologies')}'`}>Clear All</button>
           </div>
         )}
       </div>

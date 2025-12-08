@@ -8,8 +8,8 @@ import rehypeExternalLinks from 'rehype-external-links'
 // https://astro.build/config
 export default defineConfig({
   // Base path will be set by GitHub Actions workflow via --base flag
-  // For local development, this defaults to '/'
-  base: import.meta.env.BASE_URL || '/',
+  // For local development, this defaults to '/' (can be overridden via CLI)
+  // base: '/kb_hackronin/', // Uncomment and set if needed for local testing
   site: 'https://kb.h4ckronin.com',
   integrations: [mdx(), svelte()],
   markdown: {
