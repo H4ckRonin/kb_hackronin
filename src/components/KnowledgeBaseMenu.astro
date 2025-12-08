@@ -614,8 +614,8 @@ const menuItems = [
   }
   
   .menu-item:hover::after {
-    opacity: 1;
-    animation: scanlineMove 0.1s linear infinite;
+    opacity: 0.6;
+    animation: scanlineMove 0.2s linear infinite;
   }
   
   @keyframes scanlineMove {
@@ -623,70 +623,55 @@ const menuItems = [
       transform: translateY(0);
     }
     100% {
-      transform: translateY(4px);
+      transform: translateY(3px);
     }
   }
 
   .menu-item:hover {
     border-color: var(--accent-color, #d4b78c);
     background: rgba(212, 183, 140, 0.1);
-    animation: nierGlitch 0.3s infinite;
+    animation: nierGlitch 0.5s infinite;
     box-shadow: 0 0 10px rgba(212, 183, 140, 0.15);
   }
 
   .menu-item:active {
-    animation: nierGlitchActive 0.15s infinite;
+    animation: nierGlitchActive 0.2s infinite;
     transition: transform 0.1s cubic-bezier(0.4, 0, 0.2, 1);
   }
 
   @media (max-width: 768px) {
     .menu-item:hover {
-      animation: nierGlitch 0.3s infinite;
+      animation: nierGlitch 0.5s infinite;
       box-shadow: 0 0 20px rgba(212, 183, 140, 0.2);
     }
     
     .menu-item:active {
-      animation: nierGlitchActive 0.15s infinite;
+      animation: nierGlitchActive 0.2s infinite;
     }
   }
   
-  /* Nier Automata glitch effect keyframes */
+  /* Nier Automata glitch effect keyframes - toned down */
   @keyframes nierGlitch {
     0% {
       transform: translate(0);
-      filter: hue-rotate(0deg);
     }
-    10% {
-      transform: translate(-1px, 1px);
-      filter: hue-rotate(90deg);
-    }
-    20% {
-      transform: translate(1px, -1px);
-      filter: hue-rotate(180deg);
+    15% {
+      transform: translate(-0.3px, 0.3px);
     }
     30% {
-      transform: translate(-1px, -1px);
-      filter: hue-rotate(270deg);
+      transform: translate(0.3px, -0.3px);
     }
-    40% {
-      transform: translate(1px, 1px);
-      filter: hue-rotate(360deg);
-    }
-    50% {
-      transform: translate(0);
-      filter: hue-rotate(0deg);
+    45% {
+      transform: translate(-0.3px, -0.3px);
     }
     60% {
-      transform: translate(-0.5px, 0.5px);
+      transform: translate(0.3px, 0.3px);
     }
-    70% {
-      transform: translate(0.5px, -0.5px);
-    }
-    80% {
-      transform: translate(-0.5px, -0.5px);
+    75% {
+      transform: translate(-0.2px, 0.2px);
     }
     90% {
-      transform: translate(0.5px, 0.5px);
+      transform: translate(0.2px, -0.2px);
     }
     100% {
       transform: translate(0);
@@ -695,24 +680,19 @@ const menuItems = [
   
   @keyframes nierGlitchActive {
     0% {
-      transform: translate(-1px, 1px) scale(0.98);
-      filter: hue-rotate(0deg);
+      transform: translate(-0.3px, 0.3px) scale(0.99);
     }
     25% {
-      transform: translate(1px, -1px) scale(0.98);
-      filter: hue-rotate(90deg);
+      transform: translate(0.3px, -0.3px) scale(0.99);
     }
     50% {
-      transform: translate(-1px, -1px) scale(0.98);
-      filter: hue-rotate(180deg);
+      transform: translate(-0.3px, -0.3px) scale(0.99);
     }
     75% {
-      transform: translate(1px, 1px) scale(0.98);
-      filter: hue-rotate(270deg);
+      transform: translate(0.3px, 0.3px) scale(0.99);
     }
     100% {
-      transform: translate(0) scale(0.98);
-      filter: hue-rotate(360deg);
+      transform: translate(0) scale(0.99);
     }
   }
 
@@ -849,36 +829,24 @@ const menuItems = [
   /* Chromatic aberration effect on hover */
   .menu-item:hover .menu-item-label {
     text-shadow: 
-      -1px 0 rgba(255, 0, 0, 0.5),
-      1px 0 rgba(0, 255, 255, 0.5),
-      0 0 4px rgba(212, 183, 140, 0.3);
-    animation: chromaticAberration 0.3s infinite;
+      -0.5px 0 rgba(255, 0, 0, 0.3),
+      0.5px 0 rgba(0, 255, 255, 0.3),
+      0 0 3px rgba(212, 183, 140, 0.25);
+    animation: chromaticAberration 0.5s infinite;
   }
   
   @keyframes chromaticAberration {
     0%, 100% {
       text-shadow: 
-        -1px 0 rgba(255, 0, 0, 0.5),
-        1px 0 rgba(0, 255, 255, 0.5),
-        0 0 4px rgba(212, 183, 140, 0.3);
-    }
-    25% {
-      text-shadow: 
-        -2px 0 rgba(255, 0, 0, 0.6),
-        2px 0 rgba(0, 255, 255, 0.6),
-        0 0 6px rgba(212, 183, 140, 0.4);
+        -0.5px 0 rgba(255, 0, 0, 0.3),
+        0.5px 0 rgba(0, 255, 255, 0.3),
+        0 0 3px rgba(212, 183, 140, 0.25);
     }
     50% {
       text-shadow: 
-        -1px 1px rgba(255, 0, 0, 0.5),
-        1px -1px rgba(0, 255, 255, 0.5),
+        -0.8px 0 rgba(255, 0, 0, 0.4),
+        0.8px 0 rgba(0, 255, 255, 0.4),
         0 0 4px rgba(212, 183, 140, 0.3);
-    }
-    75% {
-      text-shadow: 
-        -2px -1px rgba(255, 0, 0, 0.6),
-        2px 1px rgba(0, 255, 255, 0.6),
-        0 0 6px rgba(212, 183, 140, 0.4);
     }
   }
 
@@ -900,10 +868,10 @@ const menuItems = [
   
   .menu-item:hover .menu-item-indicator {
     opacity: 1;
-    animation: indicatorGlitch 0.3s infinite;
+    animation: indicatorGlitch 0.5s infinite;
     text-shadow: 
-      -1px 0 rgba(255, 0, 0, 0.5),
-      1px 0 rgba(0, 255, 255, 0.5);
+      -0.5px 0 rgba(255, 0, 0, 0.3),
+      0.5px 0 rgba(0, 255, 255, 0.3);
   }
   
   @keyframes indicatorGlitch {
@@ -911,13 +879,13 @@ const menuItems = [
       transform: translate(0);
     }
     25% {
-      transform: translate(-1px, 0);
+      transform: translate(-0.3px, 0);
     }
     50% {
-      transform: translate(1px, 0);
+      transform: translate(0.3px, 0);
     }
     75% {
-      transform: translate(-0.5px, 0);
+      transform: translate(-0.2px, 0);
     }
   }
 
