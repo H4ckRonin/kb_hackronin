@@ -12,6 +12,12 @@ const { title, description, permalink, current } = Astro.props;
 
 // Get base URL for client-side JavaScript
 const baseUrl = import.meta.env.BASE_URL || '/';
+
+// Construct wallpaper URLs with base URL
+const wallpaperDark = `${baseUrl}assets/wallpaper-dark.jpg`;
+const wallpaperLight = `${baseUrl}assets/wallpaper-light.png`;
+const wallpaperCertifications = `${baseUrl}assets/wallpaper-certifications.jpg`;
+const wallpaperMethodologies = `${baseUrl}assets/wallpaper-methodologies.webp`;
 ---
 
 <html lang="en">
@@ -41,11 +47,12 @@ const baseUrl = import.meta.env.BASE_URL || '/';
     --card-bg: rgba(17,17,17,0.85);
     --border-color: #222;
     --scanline: rgba(255,255,255,0.02);
-    --base-url: '{baseUrl}';
-    --wallpaper-dark: url('{baseUrl}assets/wallpaper-dark.jpg');
-    --wallpaper-light: url('{baseUrl}assets/wallpaper-light.png');
-    --wallpaper-certifications: url('{baseUrl}assets/wallpaper-certifications.jpg');
-    --wallpaper-methodologies: url('{baseUrl}assets/wallpaper-methodologies.webp');
+    --base-url: {baseUrl};
+    /* Wallpaper URLs will be set via JavaScript */
+    --wallpaper-dark: url('/assets/wallpaper-dark.jpg');
+    --wallpaper-light: url('/assets/wallpaper-light.png');
+    --wallpaper-certifications: url('/assets/wallpaper-certifications.jpg');
+    --wallpaper-methodologies: url('/assets/wallpaper-methodologies.webp');
   }
   [data-theme="light"] {
     --bg-color: #f5f0e8;
@@ -318,7 +325,7 @@ const baseUrl = import.meta.env.BASE_URL || '/';
   }
 </style>
 
-<script is:inline define:vars={{ baseUrl }}>
+<script is:inline define:vars={{ baseUrl, wallpaperDark, wallpaperLight, wallpaperCertifications, wallpaperMethodologies }}>
   // Make base URL available globally for client-side JavaScript
   window.__BASE_URL__ = baseUrl;
   
@@ -329,6 +336,29 @@ const baseUrl = import.meta.env.BASE_URL || '/';
     const pathClean = path.startsWith('/') ? path : `/${path}`;
     return `${baseClean}${pathClean}`;
   };
+  
+  // Set wallpaper CSS variables dynamically
+  function setWallpaperVariables() {
+    document.documentElement.style.setProperty('--wallpaper-dark', `url('${wallpaperDark}')`);
+    document.documentElement.style.setProperty('--wallpaper-light', `url('${wallpaperLight}')`);
+    document.documentElement.style.setProperty('--wallpaper-certifications', `url('${wallpaperCertifications}')`);
+    document.documentElement.style.setProperty('--wallpaper-methodologies', `url('${wallpaperMethodologies}')`);
+  }
+  
+  // Set immediately
+  if (document.documentElement) {
+    setWallpaperVariables();
+  }
+  
+  // Also set on DOM ready
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', setWallpaperVariables);
+  } else {
+    setWallpaperVariables();
+  }
+  
+  // Re-set on page transitions
+  document.addEventListener('astro:page-load', setWallpaperVariables);
 </script>
 
 <script>
