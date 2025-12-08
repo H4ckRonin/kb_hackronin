@@ -13,11 +13,12 @@ const { title, description, permalink, current } = Astro.props;
 // Get base URL for client-side JavaScript
 const baseUrl = import.meta.env.BASE_URL || '/';
 
-// Construct wallpaper URLs with base URL
-const wallpaperDark = `${baseUrl}assets/wallpaper-dark.jpg`;
-const wallpaperLight = `${baseUrl}assets/wallpaper-light.png`;
-const wallpaperCertifications = `${baseUrl}assets/wallpaper-certifications.jpg`;
-const wallpaperMethodologies = `${baseUrl}assets/wallpaper-methodologies.webp`;
+// Construct wallpaper URLs with base URL - ensure proper path joining
+const baseUrlNormalized = baseUrl.endsWith('/') ? baseUrl : `${baseUrl}/`;
+const wallpaperDark = `${baseUrlNormalized}assets/wallpaper-dark.jpg`;
+const wallpaperLight = `${baseUrlNormalized}assets/wallpaper-light.png`;
+const wallpaperCertifications = `${baseUrlNormalized}assets/wallpaper-certifications.jpg`;
+const wallpaperMethodologies = `${baseUrlNormalized}assets/wallpaper-methodologies.webp`;
 ---
 
 <html lang="en">
@@ -39,7 +40,7 @@ const wallpaperMethodologies = `${baseUrl}assets/wallpaper-methodologies.webp`;
 </body>
 </html>
 
-<style define:vars={{ baseUrl }}>
+<style define:vars={{ baseUrl, baseUrlNormalized }}>
   :root {
     --bg-color: #0b0b0b;
     --fg-color: #e6e0d6;
@@ -49,10 +50,10 @@ const wallpaperMethodologies = `${baseUrl}assets/wallpaper-methodologies.webp`;
     --scanline: rgba(255,255,255,0.02);
     --base-url: {baseUrl};
     /* Wallpaper URLs with base URL - will be updated via JavaScript if needed */
-    --wallpaper-dark: url('{baseUrl}assets/wallpaper-dark.jpg');
-    --wallpaper-light: url('{baseUrl}assets/wallpaper-light.png');
-    --wallpaper-certifications: url('{baseUrl}assets/wallpaper-certifications.jpg');
-    --wallpaper-methodologies: url('{baseUrl}assets/wallpaper-methodologies.webp');
+    --wallpaper-dark: url('{baseUrlNormalized}assets/wallpaper-dark.jpg');
+    --wallpaper-light: url('{baseUrlNormalized}assets/wallpaper-light.png');
+    --wallpaper-certifications: url('{baseUrlNormalized}assets/wallpaper-certifications.jpg');
+    --wallpaper-methodologies: url('{baseUrlNormalized}assets/wallpaper-methodologies.webp');
   }
   [data-theme="light"] {
     --bg-color: #f5f0e8;
@@ -900,10 +901,11 @@ const wallpaperMethodologies = `${baseUrl}assets/wallpaper-methodologies.webp`;
       
       // Update CSS variables with base URL after swap
       const baseUrl = window.__BASE_URL__ || '/';
-      const wallpaperDark = `${baseUrl}assets/wallpaper-dark.jpg`;
-      const wallpaperLight = `${baseUrl}assets/wallpaper-light.png`;
-      const wallpaperCertifications = `${baseUrl}assets/wallpaper-certifications.jpg`;
-      const wallpaperMethodologies = `${baseUrl}assets/wallpaper-methodologies.webp`;
+      const baseUrlNormalized = baseUrl.endsWith('/') ? baseUrl : `${baseUrl}/`;
+      const wallpaperDark = `${baseUrlNormalized}assets/wallpaper-dark.jpg`;
+      const wallpaperLight = `${baseUrlNormalized}assets/wallpaper-light.png`;
+      const wallpaperCertifications = `${baseUrlNormalized}assets/wallpaper-certifications.jpg`;
+      const wallpaperMethodologies = `${baseUrlNormalized}assets/wallpaper-methodologies.webp`;
       document.documentElement.style.setProperty('--wallpaper-dark', `url('${wallpaperDark}')`);
       document.documentElement.style.setProperty('--wallpaper-light', `url('${wallpaperLight}')`);
       document.documentElement.style.setProperty('--wallpaper-certifications', `url('${wallpaperCertifications}')`);
@@ -1129,10 +1131,11 @@ const wallpaperMethodologies = `${baseUrl}assets/wallpaper-methodologies.webp`;
       
       // Update CSS variables with base URL on page load (in case they weren't set correctly)
       const baseUrl = window.__BASE_URL__ || '/';
-      const wallpaperDark = `${baseUrl}assets/wallpaper-dark.jpg`;
-      const wallpaperLight = `${baseUrl}assets/wallpaper-light.png`;
-      const wallpaperCertifications = `${baseUrl}assets/wallpaper-certifications.jpg`;
-      const wallpaperMethodologies = `${baseUrl}assets/wallpaper-methodologies.webp`;
+      const baseUrlNormalized = baseUrl.endsWith('/') ? baseUrl : `${baseUrl}/`;
+      const wallpaperDark = `${baseUrlNormalized}assets/wallpaper-dark.jpg`;
+      const wallpaperLight = `${baseUrlNormalized}assets/wallpaper-light.png`;
+      const wallpaperCertifications = `${baseUrlNormalized}assets/wallpaper-certifications.jpg`;
+      const wallpaperMethodologies = `${baseUrlNormalized}assets/wallpaper-methodologies.webp`;
       document.documentElement.style.setProperty('--wallpaper-dark', `url('${wallpaperDark}')`);
       document.documentElement.style.setProperty('--wallpaper-light', `url('${wallpaperLight}')`);
       document.documentElement.style.setProperty('--wallpaper-certifications', `url('${wallpaperCertifications}')`);
