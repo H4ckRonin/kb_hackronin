@@ -3065,7 +3065,7 @@ if (vendorFilter && categoryFilter) {
           if (selectedFilters.certification) params.set('certification', selectedFilters.certification);
           if (current.search) params.set('search', current.search);
           
-          const newUrl = params.toString() ? `/certifications?${params.toString()}` : '/certifications';
+          const newUrl = params.toString() ? window.withBase(`/certifications?${params.toString()}`) : window.withBase('/certifications');
           window.location.href = newUrl;
         }
         return;
@@ -3076,7 +3076,7 @@ if (vendorFilter && categoryFilter) {
         e.preventDefault();
         const params = new URLSearchParams(window.location.search);
         params.delete('category');
-        const newUrl = params.toString() ? `/certifications?${params.toString()}` : '/certifications';
+        const newUrl = params.toString() ? window.withBase(`/certifications?${params.toString()}`) : window.withBase('/certifications');
         window.location.href = newUrl;
         return;
       }
@@ -3085,7 +3085,7 @@ if (vendorFilter && categoryFilter) {
         e.preventDefault();
         const params = new URLSearchParams(window.location.search);
         params.delete('vendor');
-        const newUrl = params.toString() ? `/certifications?${params.toString()}` : '/certifications';
+        const newUrl = params.toString() ? window.withBase(`/certifications?${params.toString()}`) : window.withBase('/certifications');
         window.location.href = newUrl;
         return;
       }
@@ -3094,7 +3094,7 @@ if (vendorFilter && categoryFilter) {
         e.preventDefault();
         const params = new URLSearchParams(window.location.search);
         params.delete('certification');
-        const newUrl = params.toString() ? `/certifications?${params.toString()}` : '/certifications';
+        const newUrl = params.toString() ? window.withBase(`/certifications?${params.toString()}`) : window.withBase('/certifications');
         window.location.href = newUrl;
         return;
       }

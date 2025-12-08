@@ -1,6 +1,7 @@
 ---
 // Component to auto-link tool mentions in methodology content
 // This component processes content and links tool names to /tools section
+import { withBase } from '../utils/paths';
 
 interface Props {
   content: string;
@@ -46,7 +47,7 @@ function linkTools(text: string, availableTools: Array<{ id: string; title: stri
       if (before.includes('<a') && !before.includes('</a>')) {
         return match;
       }
-      return `<a href="/tools/${toolId}" class="tool-link">${match}</a>`;
+      return `<a href="${withBase(`/tools/${toolId}`)}" class="tool-link">${match}</a>`;
     });
   });
   
@@ -99,10 +100,14 @@ const processedContent = content;
         
         commonTools.forEach(tool => {
           const regex = new RegExp(`\\b${tool}\\b`, 'gi');
-          if (regex.test(html) && !html.includes(`href="/tools/`)) {
+          const baseUrl = window.__BASE_URL__ || '/';
+          const baseClean = baseUrl.endsWith('/') ? baseUrl.slice(0, -1) : baseUrl;
+          if (regex.test(html) && !html.includes(`href="${baseClean}/tools/`) && !html.includes(`href="/tools/`)) {
             html = html.replace(regex, (match) => {
               modified = true;
-              return `<a href="/tools/${tool.toLowerCase()}" class="tool-link">${match}</a>`;
+              const baseUrl = window.__BASE_URL__ || '/';
+              const baseClean = baseUrl.endsWith('/') ? baseUrl.slice(0, -1) : baseUrl;
+              return `<a href="${baseClean}/tools/${tool.toLowerCase()}" class="tool-link">${match}</a>`;
             });
           }
         });

@@ -3,7 +3,6 @@ import BaseLayout from '../../layouts/BaseLayout.astro';
 import Icon from '../../components/Icons.astro';
 import { getCollection } from 'astro:content';
 import { enrichGuideData, generateTitleFromFilename } from '../../utils/content';
-import { withBase } from '../../utils/paths';
 
 const title = 'Guides - Knowledge Base';
 const description = 'Step-by-step guides, tutorials, and walkthroughs for cybersecurity topics, techniques, and tools';
@@ -1741,7 +1740,7 @@ if (vendorFilter && categoryFilter) {
                 </button>
               </div>
             )}
-            <button class="clear-filters" onclick={`window.location.href='${withBase('/guides')}'`}>Clear All</button>
+            <button class="clear-filters" onclick={`window.location.href=window.withBase('/guides')`}>Clear All</button>
           </div>
         )}
       </div>

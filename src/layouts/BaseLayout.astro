@@ -9,6 +9,9 @@ export interface Props {
   current?: string;
 }
 const { title, description, permalink, current } = Astro.props;
+
+// Get base URL for client-side JavaScript
+const baseUrl = import.meta.env.BASE_URL || '/';
 ---
 
 <html lang="en">
@@ -309,6 +312,19 @@ const { title, description, permalink, current } = Astro.props;
     }
   }
 </style>
+
+<script is:inline define:vars={{ baseUrl }}>
+  // Make base URL available globally for client-side JavaScript
+  window.__BASE_URL__ = baseUrl;
+  
+  // Helper function to prepend base URL to paths
+  window.withBase = function(path) {
+    const base = window.__BASE_URL__ || '/';
+    const baseClean = base.endsWith('/') ? base.slice(0, -1) : base;
+    const pathClean = path.startsWith('/') ? path : `/${path}`;
+    return `${baseClean}${pathClean}`;
+  };
+</script>
 
 <script>
   // BULLETPROOF menu toggle button - uses document-level event delegation

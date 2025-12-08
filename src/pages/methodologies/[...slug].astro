@@ -11,7 +11,6 @@ import ChecklistTracker from '../../components/ChecklistTracker.astro';
 import CommandReference from '../../components/CommandReference.astro';
 import Giscus from '../../components/Giscus.astro';
 import { generateTitleFromFilename } from '../../utils/content';
-import { withBase } from '../../utils/paths';
 
 export async function getStaticPaths() {
 	const methodologies = await getCollection('methodologies');
@@ -109,7 +108,7 @@ if (category) breadcrumbs.push({ name: category.replace(/-/g, ' '), href: `/meth
   <div class="methodology-page-wrapper">
     {breadcrumbs.length > 0 && (
       <nav class="breadcrumbs" aria-label="Breadcrumb">
-        <a href={withBase('/methodologies')}>Methodologies</a>
+        <a href="/methodologies">Methodologies</a>
         {breadcrumbs.map((crumb, i) => (
           <>
             <span class="breadcrumb-separator">/</span>
@@ -133,7 +132,7 @@ if (category) breadcrumbs.push({ name: category.replace(/-/g, ' '), href: `/meth
       </div>
       {category && (
         <div class="methodology-taxonomy">
-          <a href={withBase(`/methodologies?category=${category}`)} class="category-tag">
+          <a href={`/methodologies?category=${category}`} class="category-tag">
             {category.replace(/-/g, ' ')}
           </a>
         </div>
