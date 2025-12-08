@@ -288,14 +288,15 @@ const wallpaperMethodologies = `${baseUrlNormalized}assets/wallpaper-methodologi
   @media (max-width: 768px) {
     .menu-toggle-btn {
       display: flex !important; /* Show on mobile */
-      top: 1rem;
-      left: 1rem;
-      padding: 0.75rem 1rem;
-      font-size: 0.85rem;
+      top: 0.75rem;
+      left: 0.75rem;
+      padding: 0.625rem 0.875rem;
+      font-size: 0.8125rem;
       /* Ensure it stays on top of everything */
       z-index: 1001;
       /* Make it more prominent */
       box-shadow: 0 4px 20px var(--shadow-color, rgba(212, 183, 140, 0.4)), 0 0 0 1px rgba(212, 183, 140, 0.3);
+      min-width: 70px;
     }
 
     .menu-toggle-btn .menu-text {
