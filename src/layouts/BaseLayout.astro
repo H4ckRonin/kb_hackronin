@@ -1050,14 +1050,22 @@ const wallpaperMethodologies = `${baseUrlNormalized}assets/wallpaper-methodologi
         }).catch(() => {});
       }
       
-      // Force reload of scripts by adding cache-busting parameter
+      // Force reload of scripts using fetch with no-cache headers
       const scripts = document.querySelectorAll('script[src]');
       scripts.forEach(script => {
         const src = (script as HTMLScriptElement).src;
-        if (src && !src.includes('_t=')) {
-          const url = new URL(src, window.location.origin);
-          url.searchParams.set('_t', Date.now().toString());
-          // Note: We can't directly modify script src after load, but this helps with future requests
+        if (src) {
+          // Prefetch with no-cache to force browser to reload
+          fetch(src, {
+            method: 'GET',
+            cache: 'no-store',
+            headers: {
+              'Cache-Control': 'no-cache, no-store, must-revalidate',
+              'Pragma': 'no-cache'
+            }
+          }).catch(() => {
+            // Ignore errors - this is just to bust cache
+          });
         }
       });
     }
@@ -1104,16 +1112,25 @@ const wallpaperMethodologies = `${baseUrlNormalized}assets/wallpaper-methodologi
           if (!hasContent && reloadAttempts < MAX_RELOAD_ATTEMPTS) {
             // Only reload if this seems like a cache issue (page persisted from cache)
             // For normal navigation, content should load via view transitions
-            // Use hash-based cache busting that gets removed immediately
+            // Use fetch with no-cache to force reload without URL modification
             reloadAttempts++;
-            const hash = `#_reload_${Date.now()}`;
-            window.location.replace(window.location.pathname + window.location.search + hash);
-            // Remove hash immediately
-            setTimeout(() => {
-              if (window.location.hash.startsWith('#_reload_')) {
-                window.history.replaceState({}, '', window.location.pathname + window.location.search);
+            const currentUrl = window.location.href;
+            
+            fetch(currentUrl, {
+              method: 'GET',
+              cache: 'no-store',
+              headers: {
+                'Cache-Control': 'no-cache, no-store, must-revalidate',
+                'Pragma': 'no-cache'
               }
-            }, 0);
+            }).then(() => {
+              // Force a hard reload using location.replace (doesn't add to history)
+              window.location.replace(currentUrl);
+            }).catch(() => {
+              // Fallback: regular reload
+              window.location.reload();
+            });
+            
             return; // Don't mark as checked since we're reloading
           }
         hasCheckedContent = true;
@@ -1137,22 +1154,7 @@ const wallpaperMethodologies = `${baseUrlNormalized}assets/wallpaper-methodologi
       }
     });
     
-    // Clean up cache-busting hash from URL if present
-    function cleanupCacheBustingHash() {
-      if (window.location.hash.startsWith('#_nc_')) {
-        window.history.replaceState({}, '', window.location.pathname + window.location.search);
-      }
-    }
-    
-    // Clean up hash on page load
-    if (document.readyState === 'complete') {
-      cleanupCacheBustingHash();
-    } else {
-      window.addEventListener('load', cleanupCacheBustingHash);
-    }
-    
-    // Also clean up on astro:page-load
-    document.addEventListener('astro:page-load', cleanupCacheBustingHash);
+    // No URL cleanup needed - we don't modify URLs anymore
     
     // Initial check on page load
     if (document.readyState === 'loading') {
@@ -1262,16 +1264,26 @@ const wallpaperMethodologies = `${baseUrlNormalized}assets/wallpaper-methodologi
           event.preventDefault();
           event.stopPropagation();
           
-          // Use location.replace with hash for cache-busting, then remove hash immediately
-          // This forces a reload without adding query parameters to the URL
-          const hash = `#_nc_${Date.now()}`;
-          window.location.replace(targetUrl.toString() + hash);
-          // Remove hash immediately after navigation starts
-          setTimeout(() => {
-            if (window.location.hash.startsWith('#_nc_')) {
-              window.history.replaceState({}, '', window.location.pathname + window.location.search);
+          // Preload resources with cache-busting headers before navigation
+          // This forces fresh resources without modifying the URL
+          const preloadUrl = targetUrl.toString();
+          
+          // Preload the page HTML with no-cache
+          fetch(preloadUrl, {
+            method: 'GET',
+            cache: 'no-store',
+            headers: {
+              'Cache-Control': 'no-cache, no-store, must-revalidate',
+              'Pragma': 'no-cache'
             }
-          }, 0);
+          }).then(() => {
+            // After preload, navigate normally - browser will use fresh cache
+            window.location.href = preloadUrl;
+          }).catch(() => {
+            // Fallback: just navigate (will still work, just might use cache)
+            window.location.href = preloadUrl;
+          });
+          
           return;
         }
       } catch {
