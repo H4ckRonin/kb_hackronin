@@ -3,6 +3,7 @@ import BaseLayout from '../layouts/BaseLayout.astro';
 import Icon from '../components/Icons.astro';
 import { getCollection } from 'astro:content';
 import { enrichCertData } from '../utils/content';
+import { assetUrl } from '../utils/paths';
 
 const title = 'Knowledge Base - Cybersecurity Resources';
 const description = 'Comprehensive knowledge base for penetration testing, red teaming, and cybersecurity certifications';
@@ -459,7 +460,7 @@ const recentMethodologies = allMethodologies.slice(-4).reverse();
         <h1 class="hero-title">Knowledge Base</h1>
       <div class="hero-icon-container">
         <img 
-          src="/assets/book-icon.png" 
+          src={assetUrl('/assets/book-icon.png')} 
           alt="Knowledge Base" 
           class="hero-icon"
         />

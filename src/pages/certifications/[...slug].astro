@@ -116,6 +116,10 @@ if (certification) breadcrumbs.push({ name: certification.replace(/\d+-/g, '').r
 ---
 
 <BaseLayout title={pageTitle} description={description || ''} permalink={permalink} current="certifications">
+  <script is:inline>
+    document.body.setAttribute('data-page', 'certifications');
+  </script>
+  
   <div class="cert-page-wrapper">
     {breadcrumbs.length > 0 && (
       <nav class="breadcrumbs" aria-label="Breadcrumb">

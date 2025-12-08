@@ -1,7 +1,7 @@
 ---
 import Icon from './Icons.astro';
 import ThemeToggleButton from './ThemeToggleButton.svelte';
-import { withBase } from '../utils/paths';
+import { withBase, assetUrl } from '../utils/paths';
 
 const { current = '' } = Astro.props;
 
@@ -25,7 +25,7 @@ const menuItems = [
         <a href={withBase('/')} title="Home" class="profile-picture-link">
           <div class="profile-picture-wrapper">
             <img 
-              src={import.meta.env.BASE_URL + 'assets/book-icon.png'} 
+              src={assetUrl('/assets/book-icon.png')} 
               alt="Knowledge Base" 
               class="profile-picture-image"
             />

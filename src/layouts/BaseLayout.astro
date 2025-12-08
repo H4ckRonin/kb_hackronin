@@ -1096,6 +1096,24 @@ const baseUrl = import.meta.env.BASE_URL || '/';
         }
       });
       
+      // Re-run inline scripts that set data-page attribute
+      // This ensures data-page is set correctly after view transitions
+      const inlineScripts = document.querySelectorAll('script[is\\:inline]');
+      inlineScripts.forEach((script) => {
+        if (script.textContent && script.textContent.includes('data-page')) {
+          try {
+            // Re-evaluate the script to set data-page
+            const scriptContent = script.textContent;
+            // Only re-run if it's setting data-page
+            if (scriptContent.includes('setAttribute') && scriptContent.includes('data-page')) {
+              eval(scriptContent);
+            }
+          } catch (e) {
+            // Silently fail if script can't be re-evaluated
+          }
+        }
+      });
+      
       const newPageType = getExpectedPageType();
       
       // If we switched major sections, ensure fresh content
