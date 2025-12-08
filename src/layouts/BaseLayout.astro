@@ -48,11 +48,11 @@ const wallpaperMethodologies = `${baseUrl}assets/wallpaper-methodologies.webp`;
     --border-color: #222;
     --scanline: rgba(255,255,255,0.02);
     --base-url: {baseUrl};
-    /* Wallpaper URLs will be set via JavaScript */
-    --wallpaper-dark: url('/assets/wallpaper-dark.jpg');
-    --wallpaper-light: url('/assets/wallpaper-light.png');
-    --wallpaper-certifications: url('/assets/wallpaper-certifications.jpg');
-    --wallpaper-methodologies: url('/assets/wallpaper-methodologies.webp');
+    /* Wallpaper URLs with base URL - will be updated via JavaScript if needed */
+    --wallpaper-dark: url('{baseUrl}assets/wallpaper-dark.jpg');
+    --wallpaper-light: url('{baseUrl}assets/wallpaper-light.png');
+    --wallpaper-certifications: url('{baseUrl}assets/wallpaper-certifications.jpg');
+    --wallpaper-methodologies: url('{baseUrl}assets/wallpaper-methodologies.webp');
   }
   [data-theme="light"] {
     --bg-color: #f5f0e8;
@@ -897,6 +897,17 @@ const wallpaperMethodologies = `${baseUrl}assets/wallpaper-methodologies.webp`;
       setTimeout(() => {
         initCodeBlocks(true);
       }, 600);
+      
+      // Update CSS variables with base URL after swap
+      const baseUrl = window.__BASE_URL__ || '/';
+      const wallpaperDark = `${baseUrl}assets/wallpaper-dark.jpg`;
+      const wallpaperLight = `${baseUrl}assets/wallpaper-light.png`;
+      const wallpaperCertifications = `${baseUrl}assets/wallpaper-certifications.jpg`;
+      const wallpaperMethodologies = `${baseUrl}assets/wallpaper-methodologies.webp`;
+      document.documentElement.style.setProperty('--wallpaper-dark', `url('${wallpaperDark}')`);
+      document.documentElement.style.setProperty('--wallpaper-light', `url('${wallpaperLight}')`);
+      document.documentElement.style.setProperty('--wallpaper-certifications', `url('${wallpaperCertifications}')`);
+      document.documentElement.style.setProperty('--wallpaper-methodologies', `url('${wallpaperMethodologies}')`);
       
       // Ensure stylesheets are loaded after swap
       setTimeout(() => {
