@@ -1116,13 +1116,26 @@ const wallpaperMethodologies = `${baseUrl}assets/wallpaper-methodologies.webp`;
       hasCheckedContent = false;
       reloadAttempts = 0; // Reset on new page load
       
-      // Force reload of stylesheets to ensure CSS is fresh
+      // Ensure CSS is loaded correctly - don't force reload as it can break styles
+      // Instead, verify stylesheets are present and have correct hrefs
       const stylesheets = document.querySelectorAll('link[rel="stylesheet"]');
       stylesheets.forEach((link: HTMLLinkElement) => {
         if (link.href && !link.href.includes('fonts.googleapis.com')) {
-          const href = link.href;
-          link.href = '';
-          link.href = href;
+          // Check if stylesheet is actually loaded
+          if (!link.sheet && link.href) {
+            // Stylesheet failed to load, try reloading
+            const href = link.href;
+            const newLink = document.createElement('link');
+            newLink.rel = 'stylesheet';
+            newLink.href = href;
+            newLink.onerror = () => {
+              // If still fails, try with cache bust
+              newLink.href = href + (href.includes('?') ? '&' : '?') + '_t=' + Date.now();
+            };
+            link.parentNode?.insertBefore(newLink, link.nextSibling);
+            // Remove old link after a delay
+            setTimeout(() => link.remove(), 100);
+          }
         }
       });
       
