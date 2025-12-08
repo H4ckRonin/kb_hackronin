@@ -1050,24 +1050,8 @@ const wallpaperMethodologies = `${baseUrlNormalized}assets/wallpaper-methodologi
         }).catch(() => {});
       }
       
-      // Force reload of scripts using fetch with no-cache headers
-      const scripts = document.querySelectorAll('script[src]');
-      scripts.forEach(script => {
-        const src = (script as HTMLScriptElement).src;
-        if (src) {
-          // Prefetch with no-cache to force browser to reload
-          fetch(src, {
-            method: 'GET',
-            cache: 'no-store',
-            headers: {
-              'Cache-Control': 'no-cache, no-store, must-revalidate',
-              'Pragma': 'no-cache'
-            }
-          }).catch(() => {
-            // Ignore errors - this is just to bust cache
-          });
-        }
-      });
+      // Clear script cache by invalidating cache storage
+      // Don't interfere with script loading - let browser handle it naturally
     }
     
     // Simplified: Just check if content exists, don't validate page type
@@ -1112,25 +1096,9 @@ const wallpaperMethodologies = `${baseUrlNormalized}assets/wallpaper-methodologi
           if (!hasContent && reloadAttempts < MAX_RELOAD_ATTEMPTS) {
             // Only reload if this seems like a cache issue (page persisted from cache)
             // For normal navigation, content should load via view transitions
-            // Use fetch with no-cache to force reload without URL modification
+            // Simple reload without any URL manipulation
             reloadAttempts++;
-            const currentUrl = window.location.href;
-            
-            fetch(currentUrl, {
-              method: 'GET',
-              cache: 'no-store',
-              headers: {
-                'Cache-Control': 'no-cache, no-store, must-revalidate',
-                'Pragma': 'no-cache'
-              }
-            }).then(() => {
-              // Force a hard reload using location.replace (doesn't add to history)
-              window.location.replace(currentUrl);
-            }).catch(() => {
-              // Fallback: regular reload
-              window.location.reload();
-            });
-            
+            window.location.reload();
             return; // Don't mark as checked since we're reloading
           }
         hasCheckedContent = true;
@@ -1264,26 +1232,9 @@ const wallpaperMethodologies = `${baseUrlNormalized}assets/wallpaper-methodologi
           event.preventDefault();
           event.stopPropagation();
           
-          // Preload resources with cache-busting headers before navigation
-          // This forces fresh resources without modifying the URL
-          const preloadUrl = targetUrl.toString();
-          
-          // Preload the page HTML with no-cache
-          fetch(preloadUrl, {
-            method: 'GET',
-            cache: 'no-store',
-            headers: {
-              'Cache-Control': 'no-cache, no-store, must-revalidate',
-              'Pragma': 'no-cache'
-            }
-          }).then(() => {
-            // After preload, navigate normally - browser will use fresh cache
-            window.location.href = preloadUrl;
-          }).catch(() => {
-            // Fallback: just navigate (will still work, just might use cache)
-            window.location.href = preloadUrl;
-          });
-          
+          // Simply navigate - Astro view transitions handle this well
+          // Don't interfere with normal navigation which works fine
+          window.location.href = targetUrl.toString();
           return;
         }
       } catch {
