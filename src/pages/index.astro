@@ -48,13 +48,20 @@ const recentMethodologies = allMethodologies.slice(-4).reverse();
       z-index: 20;
       width: 100%;
       box-sizing: border-box;
+      display: flex;
+      flex-direction: column;
+      min-height: calc(100vh - 4rem);
+      max-height: 100vh;
+      overflow-y: auto;
+      overflow-x: hidden;
     }
 
     /* Hero Section */
     .hero-section {
       text-align: center;
-      margin-bottom: 3rem;
-      padding: 2rem 0;
+      margin-bottom: 1.5rem;
+      padding: 1.5rem 0;
+      flex-shrink: 0;
     }
 
     .hero-title-container {
@@ -62,7 +69,7 @@ const recentMethodologies = allMethodologies.slice(-4).reverse();
       justify-content: center;
       align-items: center;
       gap: 0.75rem;
-      margin-bottom: 2rem;
+      margin-bottom: 1rem;
       flex-wrap: wrap;
     }
 
@@ -74,8 +81,8 @@ const recentMethodologies = allMethodologies.slice(-4).reverse();
     }
 
     .hero-icon {
-      width: 120px;
-      height: 120px;
+      width: 90px;
+      height: 90px;
       object-fit: contain;
       filter: drop-shadow(0 4px 12px rgba(212, 183, 140, 0.3));
       transition: transform 0.3s ease;
@@ -100,7 +107,7 @@ const recentMethodologies = allMethodologies.slice(-4).reverse();
     }
 
     .hero-title {
-      font-size: 3.5rem;
+      font-size: 2.5rem;
       font-weight: 700;
       margin: 0;
       color: var(--accent-color, #d4b78c);
@@ -123,13 +130,13 @@ const recentMethodologies = allMethodologies.slice(-4).reverse();
     }
 
     .hero-subtitle {
-      font-size: 1.25rem;
+      font-size: 1rem;
       color: var(--text-muted, rgba(230, 224, 214, 0.7));
-      margin: 0 0 2rem;
+      margin: 0 0 1rem;
       max-width: 700px;
       margin-left: auto;
       margin-right: auto;
-      line-height: 1.6;
+      line-height: 1.5;
     }
 
     [data-theme="light"] .hero-subtitle {
@@ -139,7 +146,8 @@ const recentMethodologies = allMethodologies.slice(-4).reverse();
     /* Search Bar */
     .search-section {
       max-width: 700px;
-      margin: 0 auto 3rem;
+      margin: 0 auto 1.5rem;
+      flex-shrink: 0;
     }
 
     .search-wrapper {
@@ -197,21 +205,26 @@ const recentMethodologies = allMethodologies.slice(-4).reverse();
     .nav-grid {
       display: grid;
       grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-      gap: 2rem;
+      gap: 1.5rem;
       margin-bottom: 0;
+      flex: 1;
+      min-height: 0;
+      align-content: start;
     }
 
     .nav-card {
       background: var(--card-bg, rgba(17, 17, 17, 0.85));
       border: 1px solid rgba(212, 183, 140, 0.15);
       border-radius: 16px;
-      padding: 2rem;
+      padding: 1.5rem;
       text-decoration: none;
       color: inherit;
       transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
       position: relative;
       overflow: hidden;
-      display: block;
+      display: flex;
+      flex-direction: column;
+      min-height: 0;
     }
 
     [data-theme="light"] .nav-card {
@@ -271,18 +284,19 @@ const recentMethodologies = allMethodologies.slice(-4).reverse();
     .nav-card-header {
       display: flex;
       align-items: center;
-      gap: 1rem;
-      margin-bottom: 1rem;
+      gap: 0.875rem;
+      margin-bottom: 0.75rem;
+      flex-shrink: 0;
     }
 
     .nav-card-icon {
-      width: 48px;
-      height: 48px;
+      width: 40px;
+      height: 40px;
       display: flex;
       align-items: center;
       justify-content: center;
       background: rgba(212, 183, 140, 0.1);
-      border-radius: 12px;
+      border-radius: 10px;
       color: var(--accent-color, #d4b78c);
       flex-shrink: 0;
       animation: cardIconGlow 5s ease-in-out infinite;
@@ -314,7 +328,7 @@ const recentMethodologies = allMethodologies.slice(-4).reverse();
     }
 
     .nav-card-title {
-      font-size: 1.5rem;
+      font-size: 1.25rem;
       font-weight: 600;
       margin: 0;
       color: var(--fg-color, #e6e0d6);
@@ -322,17 +336,20 @@ const recentMethodologies = allMethodologies.slice(-4).reverse();
     }
 
     .nav-card-description {
-      font-size: 0.95rem;
+      font-size: 0.875rem;
       color: var(--text-muted, rgba(230, 224, 214, 0.7));
-      margin: 0 0 1rem;
-      line-height: 1.6;
+      margin: 0 0 0.75rem;
+      line-height: 1.5;
+      flex: 1;
+      min-height: 0;
     }
 
     .nav-card-count {
-      font-size: 0.875rem;
+      font-size: 0.8125rem;
       color: var(--accent-color, #d4b78c);
       font-weight: 500;
       margin-top: auto;
+      flex-shrink: 0;
     }
 
     /* Coming Soon Styling */
@@ -382,40 +399,18 @@ const recentMethodologies = allMethodologies.slice(-4).reverse();
     @media (max-width: 768px) {
       .home-container {
         padding: 1rem;
+        min-height: calc(100vh - 2rem);
       }
 
       .hero-section {
-        padding: 2rem 0 1.5rem;
-        margin-bottom: 3rem;
+        padding: 1rem 0;
+        margin-bottom: 1rem;
       }
 
       .hero-title-container {
         gap: 0.5rem;
         flex-wrap: nowrap;
-      }
-
-      .hero-title {
-        font-size: 2.5rem;
-      }
-
-      .hero-icon {
-        width: 80px;
-        height: 80px;
-      }
-
-      .hero-subtitle {
-        font-size: 1.1rem;
-      }
-
-      .nav-grid {
-        grid-template-columns: 1fr;
-        gap: 1.5rem;
-      }
-    }
-
-    @media (max-width: 480px) {
-      .hero-title-container {
-        gap: 0.4rem;
+        margin-bottom: 0.75rem;
       }
 
       .hero-title {
@@ -425,6 +420,47 @@ const recentMethodologies = allMethodologies.slice(-4).reverse();
       .hero-icon {
         width: 70px;
         height: 70px;
+      }
+
+      .hero-subtitle {
+        font-size: 0.9rem;
+        margin-bottom: 0.75rem;
+      }
+
+      .search-section {
+        margin-bottom: 1rem;
+      }
+
+      .nav-grid {
+        grid-template-columns: 1fr;
+        gap: 1rem;
+      }
+    }
+
+    @media (max-width: 480px) {
+      .hero-title-container {
+        gap: 0.4rem;
+      }
+
+      .hero-title {
+        font-size: 1.75rem;
+      }
+
+      .hero-icon {
+        width: 60px;
+        height: 60px;
+      }
+
+      .nav-card {
+        padding: 1.25rem;
+      }
+
+      .nav-card-title {
+        font-size: 1.125rem;
+      }
+
+      .nav-card-description {
+        font-size: 0.8125rem;
       }
     }
 
