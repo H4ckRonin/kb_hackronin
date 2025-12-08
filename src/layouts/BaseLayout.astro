@@ -910,6 +910,17 @@ const wallpaperMethodologies = `${baseUrlNormalized}assets/wallpaper-methodologi
       document.documentElement.style.setProperty('--wallpaper-light', `url('${wallpaperLight}')`);
       document.documentElement.style.setProperty('--wallpaper-certifications', `url('${wallpaperCertifications}')`);
       document.documentElement.style.setProperty('--wallpaper-methodologies', `url('${wallpaperMethodologies}')`);
+      
+      // Clear and set data-page attribute based on current URL to ensure correct wallpaper
+      const currentPageType = getExpectedPageType();
+      if (document.body) {
+        // Remove all data-page attributes first
+        document.body.removeAttribute('data-page');
+        // Set the correct data-page based on current path
+        if (currentPageType !== 'home' && currentPageType !== 'unknown') {
+          document.body.setAttribute('data-page', currentPageType);
+        }
+      }
     });
     
     document.addEventListener('astro:page-load', () => {
@@ -961,11 +972,16 @@ const wallpaperMethodologies = `${baseUrlNormalized}assets/wallpaper-methodologi
     // Get expected page type from URL
     function getExpectedPageType() {
       const path = window.location.pathname;
-      if (path === '/' || path === '') return 'home';
-      if (path.startsWith('/certifications')) return 'certifications';
-      if (path.startsWith('/guides')) return 'guides';
-      if (path.startsWith('/methodologies')) return 'methodologies';
-      if (path.startsWith('/support')) return 'support';
+      // Handle base URL in path (e.g., /kb_hackronin/certifications)
+      const baseUrl = window.__BASE_URL__ || '/';
+      const basePath = baseUrl === '/' ? '' : baseUrl.replace(/\/$/, '');
+      const pathWithoutBase = basePath ? path.replace(basePath, '') || '/' : path;
+      
+      if (pathWithoutBase === '/' || pathWithoutBase === '') return 'home';
+      if (pathWithoutBase.startsWith('/certifications')) return 'certifications';
+      if (pathWithoutBase.startsWith('/guides')) return 'guides';
+      if (pathWithoutBase.startsWith('/methodologies')) return 'methodologies';
+      if (pathWithoutBase.startsWith('/support')) return 'support';
       return 'unknown';
     }
     
@@ -974,11 +990,16 @@ const wallpaperMethodologies = `${baseUrlNormalized}assets/wallpaper-methodologi
       try {
         const urlObj = new URL(url, window.location.origin);
         const path = urlObj.pathname;
-        if (path === '/' || path === '') return 'home';
-        if (path.startsWith('/certifications')) return 'certifications';
-        if (path.startsWith('/guides')) return 'guides';
-        if (path.startsWith('/methodologies')) return 'methodologies';
-        if (path.startsWith('/support')) return 'support';
+        // Handle base URL in path (e.g., /kb_hackronin/certifications)
+        const baseUrl = window.__BASE_URL__ || '/';
+        const basePath = baseUrl === '/' ? '' : baseUrl.replace(/\/$/, '');
+        const pathWithoutBase = basePath ? path.replace(basePath, '') || '/' : path;
+        
+        if (pathWithoutBase === '/' || pathWithoutBase === '') return 'home';
+        if (pathWithoutBase.startsWith('/certifications')) return 'certifications';
+        if (pathWithoutBase.startsWith('/guides')) return 'guides';
+        if (pathWithoutBase.startsWith('/methodologies')) return 'methodologies';
+        if (pathWithoutBase.startsWith('/support')) return 'support';
         return 'unknown';
       } catch {
         return 'unknown';
@@ -1141,25 +1162,17 @@ const wallpaperMethodologies = `${baseUrlNormalized}assets/wallpaper-methodologi
       document.documentElement.style.setProperty('--wallpaper-certifications', `url('${wallpaperCertifications}')`);
       document.documentElement.style.setProperty('--wallpaper-methodologies', `url('${wallpaperMethodologies}')`);
       
-      // Re-run inline scripts that set data-page attribute
-      // This ensures data-page is set correctly after view transitions
-      const inlineScripts = document.querySelectorAll('script[is\\:inline]');
-      inlineScripts.forEach((script) => {
-        if (script.textContent && script.textContent.includes('data-page')) {
-          try {
-            // Re-evaluate the script to set data-page
-            const scriptContent = script.textContent;
-            // Only re-run if it's setting data-page
-            if (scriptContent.includes('setAttribute') && scriptContent.includes('data-page')) {
-              eval(scriptContent);
-            }
-          } catch (e) {
-            // Silently fail if script can't be re-evaluated
-          }
-        }
-      });
-      
+      // Clear and set data-page attribute based on current URL to ensure correct wallpaper
+      // This is more reliable than re-running inline scripts
       const newPageType = getExpectedPageType();
+      if (document.body) {
+        // Remove all data-page attributes first to clear old wallpaper
+        document.body.removeAttribute('data-page');
+        // Set the correct data-page based on current path
+        if (newPageType !== 'home' && newPageType !== 'unknown') {
+          document.body.setAttribute('data-page', newPageType);
+        }
+      }
       
       // If we switched major sections, ensure fresh content
       if (isMajorSectionChange(currentPageType, newPageType)) {
